@@ -285,3 +285,104 @@ model EventSnapshot {
   @@unique([aggregateId, version])
   @@map("EventSnapshot")
 }
+
+// AuditLog Model
+// 
+// Represents comprehensive audit logs for tracking all system activities.
+// Captures events, user actions, system changes, and security events.
+// 
+// Relationships:
+// - Self-contained model for audit logging
+model AuditLog {
+  id              Int       @id @default(autoincrement())
+  auditId         String    @unique @map("auditId")
+  eventType       String    @map("eventType")
+  entityType      String    @map("entityType")
+  entityId        String    @map("entityId")
+  action          String    @map("action")
+  userId          String?   @map("userId")
+  serviceName     String    @map("serviceName")
+  correlationId   String    @map("correlationId")
+  causationId     String?   @map("causationId")
+  metadata        Json      @map("metadata")
+  details         Json      @map("details")
+  ipAddress       String?   @map("ipAddress")
+  userAgent       String?   @map("userAgent")
+  timestamp       DateTime  @default(now()) @map("timestamp")
+
+  @@index([eventType])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([userId])
+  @@index([serviceName])
+  @@index([correlationId])
+  @@index([timestamp])
+  @@index([action])
+  @@map("AuditLog")
+}
+
+// AuditTrail Model
+// 
+// Represents aggregated audit trails for specific entities or processes.
+// Provides a high-level view of audit activities over time.
+// 
+// Relationships:
+// - Self-contained model for audit trail aggregation
+model AuditTrail {
+  id              Int       @id @default(autoincrement())
+  trailId         String    @unique @map("trailId")
+  entityType      String    @map("entityType")
+  entityId        String    @map("entityId")
+  processName     String    @map("processName")
+  correlationId   String    @map("correlationId")
+  startTime       DateTime  @map("startTime")
+  endTime         DateTime? @map("endTime")
+  status          String    @map("status") // STARTED, IN_PROGRESS, COMPLETED, FAILED
+  totalEvents     Int       @default(0) @map("totalEvents")
+  metadata        Json      @map("metadata")
+  createdAt       DateTime  @default(now()) @map("createdAt")
+  updatedAt       DateTime  @updatedAt @map("updatedAt")
+
+  @@index([entityType])
+  @@index([entityId])
+  @@index([processName])
+  @@index([correlationId])
+  @@index([status])
+  @@index([startTime])
+  @@index([endTime])
+  @@map("AuditTrail")
+}
+
+// ComplaintSagaState Model
+// 
+// Represents the state of choreographed complaint handling sagas.
+// Tracks saga progress through event correlation and provides state persistence.
+// 
+// Relationships:
+// - Self-contained model for complaint saga state tracking
+model ComplaintSagaState {
+  id              Int       @id @default(autoincrement())
+  sagaId          String    @unique @map("saga_id")
+  complaintId     String    @map("complaint_id")
+  correlationId   String    @unique @map("correlation_id")
+  customerId      String    @map("customer_id")
+  orderId         String?   @map("order_id")
+  storeId         Int       @map("store_id")
+  initiatedAt     DateTime  @map("initiated_at")
+  completedAt     DateTime? @map("completed_at")
+  status          String    @map("status")
+  currentStep     String    @map("current_step")
+  version         Int       @map("version")
+  contextData     Json      @map("context_data")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([sagaId])
+  @@index([complaintId])
+  @@index([correlationId])
+  @@index([customerId])
+  @@index([status])
+  @@index([currentStep])
+  @@index([initiatedAt])
+  @@map("complaint_saga_state")
+}
