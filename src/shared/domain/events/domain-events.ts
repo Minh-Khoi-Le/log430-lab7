@@ -1,13 +1,25 @@
 // Base Domain Event interface
 export interface DomainEvent {
+  eventId: string;
   aggregateId: string;
+  aggregateType: string;
   eventType: string;
-  occurredOn: Date;
   eventData: any;
+  metadata: EventMetadata;
+}
+
+export interface EventMetadata {
+  occurredOn: Date;
+  version: number;
+  correlationId: string;
+  causationId?: string;
+  userId?: string;
+  source: string;
 }
 
 // Stock-related events for real-time inventory updates
 export interface StockUpdatedEvent extends DomainEvent {
+  aggregateType: 'Product';
   eventType: 'STOCK_UPDATED';
   eventData: {
     storeId: number;
@@ -19,6 +31,7 @@ export interface StockUpdatedEvent extends DomainEvent {
 }
 
 export interface StockReservedEvent extends DomainEvent {
+  aggregateType: 'Product';
   eventType: 'STOCK_RESERVED';
   eventData: {
     storeId: number;
@@ -29,6 +42,7 @@ export interface StockReservedEvent extends DomainEvent {
 }
 
 export interface StockReleasedEvent extends DomainEvent {
+  aggregateType: 'Product';
   eventType: 'STOCK_RELEASED';
   eventData: {
     storeId: number;
@@ -40,6 +54,7 @@ export interface StockReleasedEvent extends DomainEvent {
 
 // Sale-related events
 export interface SaleCreatedEvent extends DomainEvent {
+  aggregateType: 'Sale';
   eventType: 'SALE_CREATED';
   eventData: {
     saleId: number;
@@ -55,6 +70,7 @@ export interface SaleCreatedEvent extends DomainEvent {
 }
 
 export interface SaleCompletedEvent extends DomainEvent {
+  aggregateType: 'Sale';
   eventType: 'SALE_COMPLETED';
   eventData: {
     saleId: number;
@@ -66,6 +82,7 @@ export interface SaleCompletedEvent extends DomainEvent {
 
 // Refund-related events
 export interface RefundCreatedEvent extends DomainEvent {
+  aggregateType: 'Refund';
   eventType: 'REFUND_CREATED';
   eventData: {
     refundId: number;
@@ -78,6 +95,7 @@ export interface RefundCreatedEvent extends DomainEvent {
 }
 
 export interface RefundCompletedEvent extends DomainEvent {
+  aggregateType: 'Refund';
   eventType: 'REFUND_COMPLETED';
   eventData: {
     refundId: number;
