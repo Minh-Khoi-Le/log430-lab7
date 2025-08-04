@@ -37,6 +37,13 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 5s
 
+  # Event Store Service
+  - job_name: 'event-store-service'
+    static_configs:
+      - targets: ['event-store-service:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
   # Kong API Gateway
   - job_name: 'kong'
     static_configs:

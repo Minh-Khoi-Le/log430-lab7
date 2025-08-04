@@ -1,10 +1,10 @@
 // Catalog Aggregate - Manages Product-Store-Stock relationships
 // This aggregate ensures consistency across the catalog domain
 
-import { Product } from '../entities/product.entity';
-import { Store } from '../entities/store.entity';
-import { Stock } from '../entities/stock.entity';
-import { DomainEvent } from '../../../../shared/domain/events/domain-events';
+import { Product } from "../entities/product.entity";
+import { Store } from "../entities/store.entity";
+import { Stock } from "../entities/stock.entity";
+import { DomainEvent } from "../../../../shared/domain/events/domain-events";
 
 export class CatalogAggregate {
   private readonly products: Map<number, Product> = new Map();
@@ -16,7 +16,7 @@ export class CatalogAggregate {
   addProduct(product: Product): void {
     this.products.set(product.id, product);
     // Create stock entries for all existing stores
-    this.stores.forEach(store => {
+    this.stores.forEach((store) => {
       this.initializeStock(store.id, product.id);
     });
   }
@@ -32,7 +32,7 @@ export class CatalogAggregate {
   addStore(store: Store): void {
     this.stores.set(store.id, store);
     // Create stock entries for all existing products
-    this.products.forEach(product => {
+    this.products.forEach((product) => {
       this.initializeStock(store.id, product.id);
     });
   }
@@ -48,7 +48,7 @@ export class CatalogAggregate {
   reserveStock(storeId: number, productId: number, quantity: number): boolean {
     const stockKey = `${storeId}-${productId}`;
     const stock = this.stocks.get(stockKey);
-    
+
     if (!stock || stock.quantity < quantity) {
       return false; // Insufficient stock
     }
@@ -58,16 +58,23 @@ export class CatalogAggregate {
 
     // Emit domain event for real-time updates
     this.events.push({
+      eventId: crypto.randomUUID(),
       aggregateId: stockKey,
-      eventType: 'STOCK_RESERVED',
-      occurredOn: new Date(),
+      aggregateType: "Product",
+      eventType: "STOCK_RESERVED",
       eventData: {
         storeId,
         productId,
         quantity,
         oldQuantity,
-        newQuantity: stock.quantity
-      }
+        newQuantity: stock.quantity,
+      },
+      metadata: {
+        occurredOn: new Date(),
+        version: 1,
+        correlationId: crypto.randomUUID(),
+        source: "catalog-service",
+      },
     });
 
     return true;
@@ -76,22 +83,29 @@ export class CatalogAggregate {
   updateStock(storeId: number, productId: number, newQuantity: number): void {
     const stockKey = `${storeId}-${productId}`;
     const stock = this.stocks.get(stockKey);
-    
+
     if (stock) {
       const oldQuantity = stock.quantity;
       stock.quantity = newQuantity;
 
       this.events.push({
+        eventId: crypto.randomUUID(),
         aggregateId: stockKey,
-        eventType: 'STOCK_UPDATED',
-        occurredOn: new Date(),
+        aggregateType: "Product",
+        eventType: "STOCK_UPDATED",
         eventData: {
           storeId,
           productId,
           oldQuantity,
           newQuantity,
-          reason: 'ADJUSTMENT'
-        }
+          reason: "ADJUSTMENT",
+        },
+        metadata: {
+          occurredOn: new Date(),
+          version: 1,
+          correlationId: crypto.randomUUID(),
+          source: "catalog-service",
+        },
       });
     }
   }
@@ -99,20 +113,27 @@ export class CatalogAggregate {
   restoreStock(storeId: number, productId: number, quantity: number): void {
     const stockKey = `${storeId}-${productId}`;
     const stock = this.stocks.get(stockKey);
-    
+
     if (stock) {
       stock.quantity += quantity;
 
       this.events.push({
+        eventId: crypto.randomUUID(),
         aggregateId: stockKey,
-        eventType: 'STOCK_RELEASED',
-        occurredOn: new Date(),
+        aggregateType: "Product",
+        eventType: "STOCK_RELEASED",
         eventData: {
           storeId,
           productId,
           quantity,
-          reason: 'REFUND_PROCESSED'
-        }
+          reason: "REFUND_PROCESSED",
+        },
+        metadata: {
+          occurredOn: new Date(),
+          version: 1,
+          correlationId: crypto.randomUUID(),
+          source: "catalog-service",
+        },
       });
     }
   }
@@ -123,18 +144,21 @@ export class CatalogAggregate {
   }
 
   getStoreInventory(storeId: number): Stock[] {
-    return Array.from(this.stocks.values())
-      .filter(stock => stock.storeId === storeId);
+    return Array.from(this.stocks.values()).filter(
+      (stock) => stock.storeId === storeId
+    );
   }
 
   getProductInventory(productId: number): Stock[] {
-    return Array.from(this.stocks.values())
-      .filter(stock => stock.productId === productId);
+    return Array.from(this.stocks.values()).filter(
+      (stock) => stock.productId === productId
+    );
   }
 
   getLowStockItems(threshold: number = 10): Stock[] {
-    return Array.from(this.stocks.values())
-      .filter(stock => stock.quantity < threshold);
+    return Array.from(this.stocks.values()).filter(
+      (stock) => stock.quantity < threshold
+    );
   }
 
   // Event handling

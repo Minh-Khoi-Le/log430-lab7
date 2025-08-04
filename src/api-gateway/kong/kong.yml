@@ -69,6 +69,18 @@ services:
       - microservice
       - transaction
 
+  # Event Store Service
+  - name: event-store-service
+    url: http://event-store-service:3000
+    routes:
+      - name: event-store-routes
+        paths:
+          - /api/events
+        strip_path: false
+    tags:
+      - microservice
+      - event-store
+
 # Global plugins
 plugins:
   - name: prometheus
@@ -150,6 +162,14 @@ plugins:
 
   - name: key-auth
     service: transaction-service
+    config:
+      key_names:
+        - apikey
+        - X-API-Key
+      hide_credentials: true
+
+  - name: key-auth
+    service: event-store-service
     config:
       key_names:
         - apikey

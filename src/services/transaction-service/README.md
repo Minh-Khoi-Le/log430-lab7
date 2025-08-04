@@ -32,6 +32,7 @@ transaction-service/
 ## API Endpoints
 
 ### Sales
+
 - `GET /api/sales` - Get all sales
 - `GET /api/sales/:id` - Get sale by ID
 - `GET /api/sales/user/:userId` - Get sales by user
@@ -41,6 +42,7 @@ transaction-service/
 - `PUT /api/sales/:id/status` - Update sale status
 
 ### Refunds
+
 - `GET /api/refunds` - Get all refunds
 - `GET /api/refunds/:id` - Get refund by ID
 - `GET /api/refunds/user/:userId` - Get refunds by user
@@ -52,6 +54,7 @@ transaction-service/
 ## Data Models
 
 ### Sale
+
 ```typescript
 {
   id: number;
@@ -65,6 +68,7 @@ transaction-service/
 ```
 
 ### Refund
+
 ```typescript
 {
   id: number;
@@ -79,6 +83,7 @@ transaction-service/
 ```
 
 ### Sale/Refund Line
+
 ```typescript
 {
   productId: number;
@@ -99,6 +104,7 @@ transaction-service/
 ## Request Examples
 
 ### Create Sale
+
 ```json
 {
   "userId": 1,
@@ -119,6 +125,7 @@ transaction-service/
 ```
 
 ### Create Refund
+
 ```json
 {
   "userId": 1,
@@ -165,13 +172,16 @@ npm test
 The service uses a **centralized database infrastructure** with domain-specific repository patterns:
 
 ### Shared Infrastructure
+
 - **Database Manager**: Centralized Prisma client management from `src/shared/infrastructure/database/`
 - **Repository Pattern**: Domain-specific interfaces with shared implementations
 - **Cross-Domain Queries**: Controlled access to other domains for validation
 - **Connection Optimization**: Single shared connection pool across all services
 
 ### Domain Boundaries
+
 The Transaction Service has access to:
+
 - **Direct Access**: Sale, SaleLine, Refund, RefundLine entities
 - **Cross-Domain Access**: Read-only validation access to User, Product, Store entities via `ICrossDomainQueries`
 
@@ -218,6 +228,7 @@ The service uses the following Prisma models:
 ## Integration
 
 This service integrates with:
+
 - **API Gateway**: Routes traffic through Kong Gateway
 - **Catalog Service**: References products and stores for validation
 - **User Service**: Validates customer information
@@ -226,6 +237,7 @@ This service integrates with:
 ## Error Handling
 
 The service provides structured error responses:
+
 - `400 Bad Request`: Invalid input data or business rule violations
 - `404 Not Found`: Resource not found
 - `500 Internal Server Error`: Server errors
@@ -233,12 +245,14 @@ The service provides structured error responses:
 ## Business Logic
 
 ### Sale Processing
+
 1. Validate user and store exist
 2. Calculate total from line items
 3. Create sale with 'active' status
 4. Generate sale response with calculated totals
 
 ### Refund Processing
+
 1. Validate original sale exists and is refundable
 2. Check refund amounts don't exceed original sale
 3. Update original sale status (refunded/partially_refunded)
@@ -247,27 +261,13 @@ The service provides structured error responses:
 ## Best Practices for Domain Boundaries
 
 ### Allowed Data Access
-- ✅ Direct access to Sale, SaleLine, Refund, RefundLine entities via respective repositories
-- ✅ Transaction-specific operations (sales processing, refund management)
-- ✅ Cross-domain validation via `ICrossDomainQueries` interface
-- ❌ Direct access to User, Product, Store repositories (use cross-domain queries instead)
 
-### Repository Usage
-```typescript
-// ✅ Correct - Using domain repositories
-const sale = await saleRepository.findById(saleId);
-const userRefunds = await refundRepository.findByUserId(userId);
-
-// ✅ Correct - Cross-domain validation
-const isValidUser = await crossDomainQueries.validateUserExists(userId);
-const productDetails = await crossDomainQueries.getProductDetails(productId);
-
-// ❌ Incorrect - Direct access to other domains
-const user = await userRepository.findById(userId); // Use crossDomainQueries instead
-const product = await productRepository.findById(productId); // Use crossDomainQueries instead
-```
+- Direct access to Sale, SaleLine, Refund, RefundLine entities via respective repositories
+- Transaction-specific operations (sales processing, refund management)
+- Cross-domain validation via `ICrossDomainQueries` interface
 
 ### Cross-Domain Operations
+
 ```typescript
 // Example: Creating a sale with validation
 async createSale(saleData: CreateSaleDto): Promise<Sale> {
@@ -288,6 +288,7 @@ async createSale(saleData: CreateSaleDto): Promise<Sale> {
 ```
 
 ### Development Guidelines
+
 1. **Transaction Domain Focus**: Only implement sales and refund-related business logic
 2. **Repository Interfaces**: Always use domain-specific repository interfaces
 3. **Cross-Domain Validation**: Use `ICrossDomainQueries` for validation, never direct repository access
@@ -300,6 +301,7 @@ async createSale(saleData: CreateSaleDto): Promise<Sale> {
 Health check endpoint: `GET /health`
 
 Returns:
+
 ```json
 {
   "status": "healthy",

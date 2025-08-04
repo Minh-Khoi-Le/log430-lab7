@@ -237,3 +237,51 @@ model SagaStepLog {
   @@index([stepName])
   @@map("SagaStepLog")
 }
+
+// EventStore Model
+// 
+// Represents stored domain events for event sourcing and replay functionality.
+// Each event is immutable and contains the full event data with metadata.
+// 
+// Relationships:
+// - Self-contained model for event storage
+model EventStore {
+  id            Int       @id @default(autoincrement())
+  eventId       String    @unique @map("eventId")
+  eventType     String    @map("eventType")
+  aggregateId   String    @map("aggregateId")
+  aggregateType String    @map("aggregateType")
+  eventData     Json      @map("eventData")
+  metadata      Json      @map("metadata")
+  version       Int       @map("version")
+  createdAt     DateTime  @default(now()) @map("createdAt")
+
+  @@index([aggregateId])
+  @@index([aggregateType])
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([aggregateId, version])
+  @@unique([aggregateId, version])
+  @@map("EventStore")
+}
+
+// EventSnapshot Model
+// 
+// Represents snapshots of aggregate state for performance optimization.
+// Snapshots allow faster reconstruction of aggregate state without replaying all events.
+// 
+// Relationships:
+// - Self-contained model for snapshot storage
+model EventSnapshot {
+  id            Int       @id @default(autoincrement())
+  aggregateId   String    @map("aggregateId")
+  aggregateType String    @map("aggregateType")
+  version       Int       @map("version")
+  data          Json      @map("data")
+  createdAt     DateTime  @default(now()) @map("createdAt")
+
+  @@index([aggregateId])
+  @@index([aggregateType])
+  @@unique([aggregateId, version])
+  @@map("EventSnapshot")
+}
