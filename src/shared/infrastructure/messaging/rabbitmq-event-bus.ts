@@ -1,6 +1,7 @@
-import { Channel } from 'amqplib';
 import { DomainEvent } from '../../domain/events/domain-events';
 import { RabbitMQConnection, RabbitMQConfig } from './rabbitmq-connection';
+import { Buffer } from 'buffer';
+import * as amqp from 'amqplib';
 
 export interface EventHandler {
   handle(event: DomainEvent): Promise<void>;
@@ -13,8 +14,8 @@ export interface EventSubscription {
 }
 
 export class RabbitMQEventBus {
-  private connection: RabbitMQConnection;
-  private subscriptions: Map<string, EventSubscription[]> = new Map();
+  private readonly connection: RabbitMQConnection;
+  private readonly subscriptions: Map<string, EventSubscription[]> = new Map();
   private isInitialized = false;
 
   constructor(config: RabbitMQConfig) {
@@ -25,7 +26,6 @@ export class RabbitMQEventBus {
     if (this.isInitialized) {
       return;
     }
-
     await this.connection.connect();
     this.isInitialized = true;
   }
@@ -38,7 +38,7 @@ export class RabbitMQEventBus {
     try {
       await this.connection.ensureConnection();
       const channel = this.connection.getChannel();
-      
+
       const message = Buffer.from(JSON.stringify(event));
       const options = {
         persistent: true,
@@ -54,7 +54,7 @@ export class RabbitMQEventBus {
       };
 
       const published = channel.publish(exchange, routingKey, message, options);
-      
+
       if (!published) {
         throw new Error(`Failed to publish event ${event.eventId} to exchange ${exchange}`);
       }
@@ -84,14 +84,14 @@ export class RabbitMQEventBus {
       // Set up consumer
       await channel.consume(
         queue,
-        async (msg) => {
+        async (msg: amqp.ConsumeMessage | null) => {
           if (!msg) {
             return;
           }
 
           try {
             const event: DomainEvent = JSON.parse(msg.content.toString());
-            
+
             // Check if this handler should process this event type
             if (event.eventType === eventType || eventType === '*') {
               console.log(`Processing event: ${event.eventType} (${event.eventId}) in queue ${queue}`);
@@ -103,7 +103,7 @@ export class RabbitMQEventBus {
             }
           } catch (error) {
             console.error(`Error processing event in queue ${queue}:`, error);
-            
+
             // Check if message has been retried too many times
             const retryCount = (msg.properties.headers?.['x-retry-count'] as number) || 0;
             const maxRetries = 3;

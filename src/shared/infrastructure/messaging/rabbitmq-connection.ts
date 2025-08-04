@@ -1,4 +1,4 @@
-import amqp, { Connection, Channel } from 'amqplib';
+import * as amqp from 'amqplib';
 
 export interface RabbitMQConfig {
   url: string;
@@ -15,20 +15,26 @@ export interface RabbitMQConfig {
   }[];
 }
 
-export class RabbitMQConnection {
-  private connection: Connection | null = null;
-  private channel: Channel | null = null;
+export class RabbitMQConnection { 
+  private connection: amqp.ChannelModel | null = null;
+  private channel: amqp.Channel | null = null;
   private isConnected = false;
 
-  constructor(private config: RabbitMQConfig) {}
+  constructor(private readonly config: RabbitMQConfig) {}
 
   public async connect(): Promise<void> {
     try {
       this.connection = await amqp.connect(this.config.url);
+      if (!this.connection) {
+        throw new Error('Failed to establish connection to RabbitMQ');
+      }
       this.channel = await this.connection.createChannel();
+      if (!this.channel) {
+        throw new Error('Failed to create channel');
+      }
       
       // Set up error handlers
-      this.connection.on('error', (err) => {
+      this.connection.on('error', (err: any) => {
         console.error('RabbitMQ connection error:', err);
         this.isConnected = false;
       });
@@ -85,7 +91,7 @@ export class RabbitMQConnection {
     }
   }
 
-  public getChannel(): Channel {
+  public getChannel(): amqp.Channel {
     if (!this.channel || !this.isConnected) {
       throw new Error('RabbitMQ channel not available. Make sure to connect first.');
     }
