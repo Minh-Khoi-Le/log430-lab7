@@ -156,7 +156,7 @@ export class AuditTrail {
     );
   }
 
-  updateStatus(status: AuditTrailStatus, endTime?: Date): AuditTrail {
+  updateStatus(status: AuditTrailStatus, endTime?: Date, metadata?: Record<string, any>): AuditTrail {
     return new AuditTrail(
       this.trailId,
       this.entityType,
@@ -166,7 +166,7 @@ export class AuditTrail {
       this.startTime,
       status,
       this.totalEvents,
-      this.metadata,
+      metadata || this.metadata,
       endTime || this.endTime
     );
   }

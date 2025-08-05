@@ -7,6 +7,11 @@ export interface CreateComplaintDto {
   description: string;
   priority: ComplaintPriority;
   category: string;
+  // Optional fields for saga processing
+  orderId?: string;
+  storeId?: number;
+  requestedResolution?: 'REFUND' | 'REPLACEMENT' | 'STORE_CREDIT' | 'REPAIR' | 'EXPLANATION';
+  amount?: number;
 }
 
 export interface AssignComplaintDto {

@@ -79,6 +79,27 @@ const initializeEventBus = async () => {
       handle: async (event) => await eventHandlers.handleSagaEvent(event)
     });
 
+    // Subscribe to complaint saga events specifically
+    await eventBus.subscribe('audit-service-complaint-saga', 'COMPLAINT_SAGA_*', {
+      handle: async (event) => await eventHandlers.handleComplaintSagaEvent(event)
+    });
+
+    await eventBus.subscribe('audit-service-complaint-saga', 'CUSTOMER_VALIDATION_*', {
+      handle: async (event) => await eventHandlers.handleComplaintSagaEvent(event)
+    });
+
+    await eventBus.subscribe('audit-service-complaint-saga', 'ORDER_VERIFICATION_*', {
+      handle: async (event) => await eventHandlers.handleComplaintSagaEvent(event)
+    });
+
+    await eventBus.subscribe('audit-service-complaint-saga', 'RESOLUTION_PROCESSING_*', {
+      handle: async (event) => await eventHandlers.handleComplaintSagaEvent(event)
+    });
+
+    await eventBus.subscribe('audit-service-complaint-saga', 'COMPENSATION_*', {
+      handle: async (event) => await eventHandlers.handleComplaintSagaEvent(event)
+    });
+
     logger.info('Event subscriptions configured successfully');
   } catch (error) {
     logger.error('Failed to initialize event bus', error as Error);

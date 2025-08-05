@@ -39,6 +39,7 @@ export interface UpdateAuditTrailCommand {
   trailId: string;
   status: AuditTrailStatus;
   endTime?: Date;
+  metadata?: Record<string, any>;
 }
 
 export interface BusinessEventParams {
@@ -156,13 +157,14 @@ export class AuditCommandHandlers {
         throw new Error(`Audit trail not found: ${command.trailId}`);
       }
 
-      const updatedTrail = existingTrail.updateStatus(command.status, command.endTime);
+      const updatedTrail = existingTrail.updateStatus(command.status, command.endTime, command.metadata);
       await this.auditTrailRepository.update(updatedTrail);
 
       logger.info('Audit trail updated successfully', {
         trailId: command.trailId,
         status: command.status,
-        endTime: command.endTime
+        endTime: command.endTime,
+        metadataUpdated: !!command.metadata
       });
     } catch (error) {
       logger.error('Failed to update audit trail', error as Error, {

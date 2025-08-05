@@ -6,6 +6,7 @@ const logger = createLogger('database-manager');
 
 export interface IDatabaseManager {
   getClient(): PrismaClient;
+  query(query: string, values: (string | number | Date | null | undefined)[]): Promise<{ rows: any[] }>;
   beginTransaction(): Promise<Prisma.TransactionClient>;
   executeInTransaction<T>(operation: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T>;
   disconnect(): Promise<void>;
@@ -26,6 +27,29 @@ export interface ConnectionMetrics {
 }
 
 export class DatabaseManager implements IDatabaseManager {
+  async query(query: string, values: (string | number | Date | null | undefined)[]): Promise<{ rows: any[] }> {
+    if (!this.connected) {
+      await this.ensureConnection();
+    }
+
+    const startTime = Date.now();
+    try {
+      // Use Prisma's $queryRawUnsafe for parameterized queries
+      const result = await this.prismaClient.$queryRawUnsafe(query, ...values);
+      
+      const duration = (Date.now() - startTime) / 1000;
+      this.recordQuery('query', 'raw_sql', duration, true);
+      
+      // Ensure result is always an array and wrap in rows property
+      const rows = Array.isArray(result) ? result : [result];
+      return { rows };
+    } catch (error) {
+      const duration = (Date.now() - startTime) / 1000;
+      this.recordQuery('query', 'raw_sql', duration, false);
+      logger.error('Raw SQL query failed', error as Error, { query, values });
+      throw error;
+    }
+  }
   private static instance: DatabaseManager;
   private readonly prismaClient: PrismaClient;
   private connected: boolean = false;

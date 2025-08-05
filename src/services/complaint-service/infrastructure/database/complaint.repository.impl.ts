@@ -1,9 +1,15 @@
-import { ComplaintRepository, ComplaintSearchCriteria } from '../../domain/repositories/complaint.repository';
-import { Complaint, ComplaintProps } from '../../domain/entities/complaint.entity';
-import { DatabaseManager } from '@shared/infrastructure/database';
-import { createLogger } from '@shared/infrastructure/logging';
+import {
+  ComplaintRepository,
+  ComplaintSearchCriteria,
+} from "../../domain/repositories/complaint.repository";
+import {
+  Complaint,
+  ComplaintProps,
+} from "../../domain/entities/complaint.entity";
+import { DatabaseManager } from "@shared/infrastructure/database";
+import { createLogger } from "@shared/infrastructure/logging";
 
-const logger = createLogger('complaint-repository');
+const logger = createLogger("complaint-repository");
 
 export class ComplaintRepositoryImpl implements ComplaintRepository {
   constructor(private readonly databaseManager: DatabaseManager) {}
@@ -11,7 +17,7 @@ export class ComplaintRepositoryImpl implements ComplaintRepository {
   async save(complaint: Complaint): Promise<void> {
     try {
       const complaintData = complaint.toPlainObject();
-      
+
       const query = `
         INSERT INTO complaints (
           id, user_id, title, description, priority, category, status,
@@ -44,18 +50,18 @@ export class ComplaintRepositoryImpl implements ComplaintRepository {
         complaintData.createdAt,
         complaintData.updatedAt,
         complaintData.closedAt || null,
-        complaintData.version
+        complaintData.version,
       ];
 
       await this.databaseManager.query(query, values);
 
-      logger.debug('Complaint saved successfully', {
+      logger.info("Complaint saved successfully", {
         complaintId: complaint.id,
-        version: complaint.version
+        version: complaint.version,
       });
     } catch (error) {
-      logger.error('Failed to save complaint', error as Error, {
-        complaintId: complaint.id
+      logger.error("Failed to save complaint", error as Error, {
+        complaintId: complaint.id,
       });
       throw error;
     }
@@ -79,7 +85,9 @@ export class ComplaintRepositoryImpl implements ComplaintRepository {
       const row = result.rows[0];
       return this.mapRowToComplaint(row);
     } catch (error) {
-      logger.error('Failed to find complaint by ID', error as Error, { complaintId: id });
+      logger.error("Failed to find complaint by ID", error as Error, {
+        complaintId: id,
+      });
       throw error;
     }
   }
@@ -96,14 +104,18 @@ export class ComplaintRepositoryImpl implements ComplaintRepository {
 
       const result = await this.databaseManager.query(query, [userId]);
 
-      return result.rows.map(row => this.mapRowToComplaint(row));
+      return result.rows.map((row) => this.mapRowToComplaint(row));
     } catch (error) {
-      logger.error('Failed to find complaints by user ID', error as Error, { userId });
+      logger.error("Failed to find complaints by user ID", error as Error, {
+        userId,
+      });
       throw error;
     }
   }
 
-  async findByCriteria(criteria: ComplaintSearchCriteria): Promise<Complaint[]> {
+  async findByCriteria(
+    criteria: ComplaintSearchCriteria
+  ): Promise<Complaint[]> {
     try {
       let query = `
         SELECT id, user_id, title, description, priority, category, status,
@@ -173,9 +185,11 @@ export class ComplaintRepositoryImpl implements ComplaintRepository {
 
       const result = await this.databaseManager.query(query, values);
 
-      return result.rows.map(row => this.mapRowToComplaint(row));
+      return result.rows.map((row) => this.mapRowToComplaint(row));
     } catch (error) {
-      logger.error('Failed to find complaints by criteria', error as Error, { criteria });
+      logger.error("Failed to find complaints by criteria", error as Error, {
+        criteria,
+      });
       throw error;
     }
   }
@@ -185,9 +199,11 @@ export class ComplaintRepositoryImpl implements ComplaintRepository {
       const query = `DELETE FROM complaints WHERE id = $1`;
       await this.databaseManager.query(query, [id]);
 
-      logger.debug('Complaint deleted successfully', { complaintId: id });
+      logger.info("Complaint deleted successfully", { complaintId: id });
     } catch (error) {
-      logger.error('Failed to delete complaint', error as Error, { complaintId: id });
+      logger.error("Failed to delete complaint", error as Error, {
+        complaintId: id,
+      });
       throw error;
     }
   }
@@ -203,7 +219,9 @@ export class ComplaintRepositoryImpl implements ComplaintRepository {
 
       return result.rows[0].version + 1;
     } catch (error) {
-      logger.error('Failed to get next version', error as Error, { complaintId: id });
+      logger.error("Failed to get next version", error as Error, {
+        complaintId: id,
+      });
       throw error;
     }
   }
@@ -215,7 +233,9 @@ export class ComplaintRepositoryImpl implements ComplaintRepository {
 
       return result.rows.length > 0;
     } catch (error) {
-      logger.error('Failed to check complaint existence', error as Error, { complaintId: id });
+      logger.error("Failed to check complaint existence", error as Error, {
+        complaintId: id,
+      });
       throw error;
     }
   }
@@ -234,7 +254,7 @@ export class ComplaintRepositoryImpl implements ComplaintRepository {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       closedAt: row.closed_at,
-      version: row.version
+      version: row.version,
     };
 
     return new Complaint(props);

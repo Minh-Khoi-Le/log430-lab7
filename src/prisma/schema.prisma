@@ -361,21 +361,34 @@ model AuditTrail {
 // Relationships:
 // - Self-contained model for complaint saga state tracking
 model ComplaintSagaState {
-  id              Int       @id @default(autoincrement())
-  sagaId          String    @unique @map("saga_id")
-  complaintId     String    @map("complaint_id")
-  correlationId   String    @unique @map("correlation_id")
-  customerId      String    @map("customer_id")
-  orderId         String?   @map("order_id")
-  storeId         Int       @map("store_id")
-  initiatedAt     DateTime  @map("initiated_at")
-  completedAt     DateTime? @map("completed_at")
-  status          String    @map("status")
-  currentStep     String    @map("current_step")
-  version         Int       @map("version")
-  contextData     Json      @map("context_data")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  id                    Int       @id @default(autoincrement())
+  sagaId                String    @unique @map("saga_id")
+  complaintId           String    @map("complaint_id")
+  correlationId         String    @unique @map("correlation_id")
+  customerId            String    @map("customer_id")
+  orderId               String?   @map("order_id")
+  storeId               Int       @default(1) @map("store_id")
+  
+  // Saga metadata
+  initiatedAt           DateTime  @map("initiated_at")
+  completedAt           DateTime? @map("completed_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  status                String    @default("INITIATED") @map("status")
+  currentStep           String    @default("SAGA_INITIATED") @map("current_step")
+  version               Int       @default(1) @map("version")
+  
+  // Business data (stored as JSONB for flexibility)
+  complaintData         Json      @map("complaint_data")
+  
+  // Step results (stored as JSONB for flexibility)
+  customerValidation    Json?     @map("customer_validation")
+  orderVerification     Json?     @map("order_verification")
+  resolutionProcessing  Json?     @map("resolution_processing")
+  compensation          Json?     @map("compensation")
+  
+  // Error and execution tracking
+  errors                Json      @default("[]") @map("errors")
+  stepHistory           Json      @default("[]") @map("step_history")
 
   @@index([sagaId])
   @@index([complaintId])
@@ -384,5 +397,5 @@ model ComplaintSagaState {
   @@index([status])
   @@index([currentStep])
   @@index([initiatedAt])
-  @@map("complaint_saga_state")
+  @@map("complaint_saga_states")
 }

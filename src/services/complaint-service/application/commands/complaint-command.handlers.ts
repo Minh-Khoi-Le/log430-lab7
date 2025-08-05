@@ -2,6 +2,8 @@ import { ComplaintRepository } from '../../domain/repositories/complaint.reposit
 import { Complaint } from '../../domain/entities/complaint.entity';
 import { IEventBus } from '@shared/infrastructure/messaging';
 import { createLogger } from '@shared/infrastructure/logging';
+import { v4 as uuidv4 } from 'uuid';
+import { COMPLAINT_SAGA_EVENTS } from '../../../../shared/domain/events/complaint-saga.events';
 import {
   CreateComplaintDto,
   AssignComplaintDto,
@@ -42,6 +44,9 @@ export class ComplaintCommandHandlers {
 
       // Publish domain events
       await this.publishDomainEvents(complaint);
+
+      // Initiate complaint saga for choreographed processing
+      await this.initiateSaga(complaint, command);
 
       logger.info('Complaint created successfully', { 
         complaintId: complaint.id,
@@ -236,13 +241,121 @@ export class ComplaintCommandHandlers {
     }
   }
 
+  /**
+   * Initiate complaint saga for choreographed processing
+   */
+  private async initiateSaga(complaint: Complaint, command: CreateComplaintDto): Promise<void> {
+    try {
+      const correlationId = uuidv4();
+      
+      // Determine if saga processing is needed based on complaint characteristics
+      const needsSagaProcessing = this.shouldInitiateSaga(complaint, command);
+      
+      if (!needsSagaProcessing) {
+        logger.info('Complaint does not require saga processing', {
+          complaintId: complaint.id,
+          category: command.category,
+          priority: command.priority
+        });
+        return;
+      }
+
+      // Create saga initiation event
+      const sagaEvent = {
+        eventId: uuidv4(),
+        eventType: COMPLAINT_SAGA_EVENTS.SAGA_INITIATED,
+        aggregateId: uuidv4(), // This will be the saga ID
+        correlationId,
+        timestamp: new Date(),
+        version: 1,
+        eventData: {
+          complaintId: complaint.id,
+          customerId: command.userId.toString(),
+          orderId: command.orderId, // Optional order ID from command
+          storeId: command.storeId || 1,
+          complaintType: this.mapCategoryToComplaintType(command.category),
+          priority: command.priority,
+          description: command.description,
+          requestedResolution: command.requestedResolution,
+          amount: command.amount,
+          initiatedAt: new Date()
+        }
+      };
+
+      // Publish saga initiation event
+      await this.eventBus.publish('complaint_saga', 'saga.initiated', sagaEvent as any);
+
+      logger.info('Complaint saga initiated', {
+        complaintId: complaint.id,
+        sagaId: sagaEvent.aggregateId,
+        correlationId,
+        complaintType: sagaEvent.eventData.complaintType,
+        priority: command.priority
+      });
+
+    } catch (error) {
+      logger.error('Failed to initiate complaint saga', error as Error, {
+        complaintId: complaint.id,
+        userId: command.userId
+      });
+      // Don't throw here to avoid breaking the complaint creation
+      // The complaint can still be processed manually if saga fails
+    }
+  }
+
+  /**
+   * Determine if a complaint should trigger saga processing
+   */
+  private shouldInitiateSaga(complaint: Complaint, command: CreateComplaintDto): boolean {
+    // Business rules for when to initiate saga processing
+    
+    // Always initiate saga for high priority complaints
+    if (command.priority === 'HIGH' || command.priority === 'CRITICAL') {
+      return true;
+    }
+
+    // Initiate saga for complaints with financial implications
+    if (command.requestedResolution && 
+        ['REFUND', 'REPLACEMENT', 'STORE_CREDIT'].includes(command.requestedResolution)) {
+      return true;
+    }
+
+    // Initiate saga for complaints related to orders
+    if (command.orderId) {
+      return true;
+    }
+
+    // Initiate saga for specific complaint categories
+    const sagaCategories = ['PRODUCT_DEFECT', 'SERVICE_ISSUE', 'BILLING_DISPUTE', 'DELIVERY_ISSUE'];
+    if (sagaCategories.includes(command.category)) {
+      return true;
+    }
+
+    // For other cases, use regular complaint processing
+    return false;
+  }
+
+  /**
+   * Map complaint category to saga complaint type
+   */
+  private mapCategoryToComplaintType(category: string): 'PRODUCT_DEFECT' | 'SERVICE_ISSUE' | 'BILLING_DISPUTE' | 'DELIVERY_ISSUE' | 'OTHER' {
+    const mapping: Record<string, 'PRODUCT_DEFECT' | 'SERVICE_ISSUE' | 'BILLING_DISPUTE' | 'DELIVERY_ISSUE' | 'OTHER'> = {
+      'PRODUCT_DEFECT': 'PRODUCT_DEFECT',
+      'SERVICE_ISSUE': 'SERVICE_ISSUE',
+      'BILLING_DISPUTE': 'BILLING_DISPUTE',
+      'DELIVERY_ISSUE': 'DELIVERY_ISSUE'
+    };
+    
+    return mapping[category] || 'OTHER';
+  }
+
   private async publishDomainEvents(complaint: Complaint): Promise<void> {
     const events = complaint.domainEvents;
     
     for (const event of events) {
       try {
         await this.eventBus.publish('complaints.events', event.eventType, event);
-        logger.debug('Domain event published', {
+        logger.info('Domain event published', {
           eventType: event.eventType,
           aggregateId: event.aggregateId,
           eventId: event.eventId
