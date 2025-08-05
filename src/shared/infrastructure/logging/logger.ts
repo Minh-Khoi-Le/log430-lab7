@@ -3,8 +3,10 @@
  * 
  * Provides standardized logging functionality across all microservices.
  * Supports different log levels (INFO, WARN, ERROR) and adds contextual
- * information like timestamps and service names.
+ * information like timestamps, service names, and correlation IDs for distributed tracing.
  */
+
+import { CorrelationContextManager } from './correlation-context';
 
 // Log levels enum
 export enum LogLevel {
@@ -86,11 +88,21 @@ export class Logger {
     }
 
     const timestamp = new Date().toISOString();
+    const correlationContext = CorrelationContextManager.getContext();
+    
     const logEntry = {
       timestamp,
       level,
       service: this.options.serviceName,
       message,
+      // Include correlation context for distributed tracing
+      ...(correlationContext ? {
+        correlationId: correlationContext.correlationId,
+        causationId: correlationContext.causationId,
+        userId: correlationContext.userId,
+        sagaId: correlationContext.sagaId,
+        eventType: correlationContext.eventType
+      } : {}),
       ...(context ? { context } : {}),
     };
 
@@ -118,33 +130,33 @@ export class Logger {
    * Output the log entry to the console with appropriate formatting
    */
   private logToConsole(level: LogLevel, logEntry: any): void {
-    const formattedMessage = `[${logEntry.timestamp}] [${logEntry.service}] [${level}] ${logEntry.message}`;
+    // Create structured JSON log for better parsing and correlation
+    const structuredLog = {
+      timestamp: logEntry.timestamp,
+      level: level,
+      service: logEntry.service,
+      message: logEntry.message,
+      ...(logEntry.correlationId ? { correlationId: logEntry.correlationId } : {}),
+      ...(logEntry.causationId ? { causationId: logEntry.causationId } : {}),
+      ...(logEntry.userId ? { userId: logEntry.userId } : {}),
+      ...(logEntry.sagaId ? { sagaId: logEntry.sagaId } : {}),
+      ...(logEntry.eventType ? { eventType: logEntry.eventType } : {}),
+      ...(logEntry.context ? { context: logEntry.context } : {})
+    };
+
+    // Output as JSON for structured logging
+    const jsonLog = JSON.stringify(structuredLog);
     
     switch (level) {
       case LogLevel.INFO:
-        console.log(formattedMessage);
+        console.log(jsonLog);
         break;
       case LogLevel.WARN:
-        console.warn(formattedMessage);
+        console.warn(jsonLog);
         break;
       case LogLevel.ERROR:
-        console.error(formattedMessage);
+        console.error(jsonLog);
         break;
-    }
-
-    // Log context as a separate object if present
-    if (logEntry.context) {
-      switch (level) {
-        case LogLevel.INFO:
-          console.log(logEntry.context);
-          break;
-        case LogLevel.WARN:
-          console.warn(logEntry.context);
-          break;
-        case LogLevel.ERROR:
-          console.error(logEntry.context);
-          break;
-      }
     }
   }
 }

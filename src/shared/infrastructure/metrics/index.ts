@@ -102,3 +102,5 @@ export {
 };
 
 export * from './middleware';
+export * from './event-metrics';
+export * from './event-instrumentation';

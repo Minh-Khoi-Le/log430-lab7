@@ -123,3 +123,5 @@ class HybridEventBus implements IEventBus {
 // Export singleton instances
 export const eventBus = new HybridEventBus();
 export const legacyEventBus = new InMemoryEventBus();
+
+export { EventHandler };

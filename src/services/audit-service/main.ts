@@ -12,7 +12,8 @@ import { AuditTrailRepositoryImpl } from './infrastructure/database/audit-trail.
 import { createLogger } from '@shared/infrastructure/logging';
 import { register, metricsMiddleware, collectSystemMetrics } from '@shared/infrastructure/metrics';
 import { databaseManager, createHealthRoutes } from '@shared/infrastructure/database';
-import { eventBus } from '@shared/infrastructure/messaging';
+import { eventBus, createInstrumentedEventBus } from '@shared/infrastructure/messaging';
+import { correlationMiddleware } from '@shared/infrastructure/http';
 
 // Create a logger for the audit service
 const logger = createLogger('audit-service');
@@ -26,6 +27,9 @@ databaseManager.startMonitoring(SERVICE_NAME);
 
 // Initialize system metrics collection
 collectSystemMetrics(SERVICE_NAME);
+
+// Create instrumented event bus for metrics and correlation tracking
+const instrumentedEventBus = createInstrumentedEventBus(eventBus, SERVICE_NAME);
 
 // Initialize repositories
 const auditLogRepository = new AuditLogRepositoryImpl(databaseManager);
@@ -42,61 +46,61 @@ const auditController = new AuditController(queryHandlers, commandHandlers);
 // Initialize event bus and set up event subscriptions
 const initializeEventBus = async () => {
   try {
-    await eventBus.initialize();
+    await instrumentedEventBus.initialize();
     logger.info('Event bus initialized successfully');
 
     // Subscribe to all events for audit logging
-    await eventBus.subscribeToAll('audit-service-all-events', {
+    await instrumentedEventBus.subscribeToAll('audit-service-all-events', {
       handle: async (event) => await eventHandlers.handleDomainEvent(event)
     });
 
     // Subscribe to specific event types for detailed processing
-    await eventBus.subscribe('audit-service-complaint-events', 'COMPLAINT_*', {
+    await instrumentedEventBus.subscribe('audit-service-complaint-events', 'COMPLAINT_*', {
       handle: async (event) => await eventHandlers.handleComplaintEvent(event)
     });
 
-    await eventBus.subscribe('audit-service-transaction-events', 'SALE_*', {
+    await instrumentedEventBus.subscribe('audit-service-transaction-events', 'SALE_*', {
       handle: async (event) => await eventHandlers.handleTransactionEvent(event)
     });
 
-    await eventBus.subscribe('audit-service-transaction-events', 'REFUND_*', {
+    await instrumentedEventBus.subscribe('audit-service-transaction-events', 'REFUND_*', {
       handle: async (event) => await eventHandlers.handleTransactionEvent(event)
     });
 
-    await eventBus.subscribe('audit-service-transaction-events', 'STOCK_*', {
+    await instrumentedEventBus.subscribe('audit-service-transaction-events', 'STOCK_*', {
       handle: async (event) => await eventHandlers.handleTransactionEvent(event)
     });
 
-    await eventBus.subscribe('audit-service-security-events', 'USER_*', {
+    await instrumentedEventBus.subscribe('audit-service-security-events', 'USER_*', {
       handle: async (event) => await eventHandlers.handleSecurityEvent(event)
     });
 
-    await eventBus.subscribe('audit-service-security-events', 'AUTH_*', {
+    await instrumentedEventBus.subscribe('audit-service-security-events', 'AUTH_*', {
       handle: async (event) => await eventHandlers.handleSecurityEvent(event)
     });
 
-    await eventBus.subscribe('audit-service-saga-events', 'SAGA_*', {
+    await instrumentedEventBus.subscribe('audit-service-saga-events', 'SAGA_*', {
       handle: async (event) => await eventHandlers.handleSagaEvent(event)
     });
 
     // Subscribe to complaint saga events specifically
-    await eventBus.subscribe('audit-service-complaint-saga', 'COMPLAINT_SAGA_*', {
+    await instrumentedEventBus.subscribe('audit-service-complaint-saga', 'COMPLAINT_SAGA_*', {
       handle: async (event) => await eventHandlers.handleComplaintSagaEvent(event)
     });
 
-    await eventBus.subscribe('audit-service-complaint-saga', 'CUSTOMER_VALIDATION_*', {
+    await instrumentedEventBus.subscribe('audit-service-complaint-saga', 'CUSTOMER_VALIDATION_*', {
       handle: async (event) => await eventHandlers.handleComplaintSagaEvent(event)
     });
 
-    await eventBus.subscribe('audit-service-complaint-saga', 'ORDER_VERIFICATION_*', {
+    await instrumentedEventBus.subscribe('audit-service-complaint-saga', 'ORDER_VERIFICATION_*', {
       handle: async (event) => await eventHandlers.handleComplaintSagaEvent(event)
     });
 
-    await eventBus.subscribe('audit-service-complaint-saga', 'RESOLUTION_PROCESSING_*', {
+    await instrumentedEventBus.subscribe('audit-service-complaint-saga', 'RESOLUTION_PROCESSING_*', {
       handle: async (event) => await eventHandlers.handleComplaintSagaEvent(event)
     });
 
-    await eventBus.subscribe('audit-service-complaint-saga', 'COMPENSATION_*', {
+    await instrumentedEventBus.subscribe('audit-service-complaint-saga', 'COMPENSATION_*', {
       handle: async (event) => await eventHandlers.handleComplaintSagaEvent(event)
     });
 
@@ -113,7 +117,8 @@ initializeEventBus().catch(err => logger.error('Event bus initialization error',
 // Middleware
 app.use(cors());
 app.use(json());
-app.use(metricsMiddleware);
+app.use(correlationMiddleware); // Add correlation context middleware
+app.use(metricsMiddleware(SERVICE_NAME)); // Add metrics middleware with service name
 
 // Health check routes
 app.use('/health', createHealthRoutes());
@@ -174,7 +179,7 @@ process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully');
   
   try {
-    await eventBus.disconnect();
+    await instrumentedEventBus.disconnect();
     await databaseManager.disconnect();
     process.exit(0);
   } catch (error) {
@@ -187,7 +192,7 @@ process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully');
   
   try {
-    await eventBus.disconnect();
+    await instrumentedEventBus.disconnect();
     await databaseManager.disconnect();
     process.exit(0);
   } catch (error) {

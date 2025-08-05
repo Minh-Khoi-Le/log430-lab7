@@ -3,3 +3,4 @@
  */
 export * from './http-client';
 export * from './request-logger.middleware';
+export * from './correlation-middleware';

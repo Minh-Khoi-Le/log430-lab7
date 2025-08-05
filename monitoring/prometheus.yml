@@ -44,6 +44,20 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 5s
 
+  # Complaint Service
+  - job_name: 'complaint-service'
+    static_configs:
+      - targets: ['complaint-service:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  # Audit Service
+  - job_name: 'audit-service'
+    static_configs:
+      - targets: ['audit-service:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
   # Kong API Gateway
   - job_name: 'kong'
     static_configs:

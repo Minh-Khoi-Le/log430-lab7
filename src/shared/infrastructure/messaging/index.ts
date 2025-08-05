@@ -4,6 +4,7 @@ export { RabbitMQEventBus, EventHandler, EventSubscription } from './rabbitmq-ev
 export { RabbitMQConnection, RabbitMQConfig } from './rabbitmq-connection';
 export { EventBusFactory } from './event-bus-factory';
 export { MessagingHealthCheck, HealthCheckResult } from './health-check';
+export { InstrumentedEventBus, createInstrumentedEventBus } from './instrumented-event-bus';
 
 // Domain events and utilities
 export { DomainEvent, EventMetadata } from '../../domain/events/domain-events';

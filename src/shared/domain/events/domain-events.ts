@@ -14,6 +14,7 @@ export interface EventMetadata {
   correlationId: string;
   causationId?: string;
   userId?: string;
+  sagaId?: string;
   source: string;
 }
 

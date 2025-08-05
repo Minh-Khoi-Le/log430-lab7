@@ -6,7 +6,7 @@ import { UserController } from "./infrastructure/http/user.controller";
 import { AuthController } from "./infrastructure/http/auth.controller";
 import { authenticate } from "./infrastructure/middleware/auth.middleware";
 import { createLogger } from "@shared/infrastructure/logging";
-import { requestLogger } from "@shared/infrastructure/http";
+import { requestLogger, correlationMiddleware } from "@shared/infrastructure/http";
 import {
   redisClient,
   CacheService,
@@ -128,6 +128,7 @@ initializeEventBus().catch((err) =>
 // Middleware
 app.use(cors());
 app.use(json());
+app.use(correlationMiddleware); // Add correlation context middleware
 app.use(requestLogger); // Add request logging middleware
 app.use(metricsMiddleware(SERVICE_NAME)); // Add metrics middleware
 

@@ -12,7 +12,10 @@ import { ComplaintSagaEventHandlers } from "./application/saga/complaint-saga.ha
 import { ComplaintSagaStateManagerImpl } from "./application/saga/complaint-saga-state.manager";
 import { ComplaintSagaStateRepositoryImpl } from "./infrastructure/database/complaint-saga-state.repository.impl";
 import { createLogger } from "@shared/infrastructure/logging";
-import { requestLogger } from "@shared/infrastructure/http";
+import {
+  requestLogger,
+  correlationMiddleware,
+} from "@shared/infrastructure/http";
 import {
   register,
   metricsMiddleware,
@@ -22,7 +25,11 @@ import {
   databaseManager,
   createHealthRoutes,
 } from "@shared/infrastructure/database";
-import { eventBus, IEventBus } from "@shared/infrastructure/messaging";
+import {
+  eventBus,
+  IEventBus,
+  createInstrumentedEventBus,
+} from "@shared/infrastructure/messaging";
 import { DomainEvent } from "@shared/domain/events/domain-events";
 import { ComplaintSagaEvent } from "@shared/domain/events/complaint-saga.events";
 
@@ -39,6 +46,9 @@ databaseManager.startMonitoring(SERVICE_NAME);
 // Initialize system metrics collection
 collectSystemMetrics(SERVICE_NAME);
 
+// Create instrumented event bus for metrics and correlation tracking
+const instrumentedEventBus = createInstrumentedEventBus(eventBus, SERVICE_NAME);
+
 // Initialize repositories
 const complaintRepository = new ComplaintRepositoryImpl(databaseManager);
 const complaintViewRepository = new ComplaintViewRepositoryImpl(
@@ -48,23 +58,23 @@ const sagaStateRepository = new ComplaintSagaStateRepositoryImpl(
   databaseManager
 );
 
-// Initialize handlers
+// Initialize handlers with instrumented event bus
 const commandHandlers = new ComplaintCommandHandlers(
   complaintRepository,
-  eventBus
+  instrumentedEventBus
 );
 const queryHandlers = new ComplaintQueryHandlers(complaintViewRepository);
 const projectionHandlers = new ComplaintProjectionHandlers(
   complaintViewRepository
 );
 
-// Initialize saga components
+// Initialize saga components with instrumented event bus
 const sagaStateManager = new ComplaintSagaStateManagerImpl(sagaStateRepository);
 const sagaEventHandlers = new ComplaintSagaEventHandlers(
   complaintRepository,
   commandHandlers,
   sagaStateManager,
-  eventBus
+  instrumentedEventBus
 );
 
 // Convert DomainEvent to ComplaintSagaEvent format
@@ -90,126 +100,152 @@ const convertDomainEventToSagaEvent = (
 // Initialize event bus and set up event subscriptions
 const initializeEventBus = async () => {
   try {
-    await eventBus.initialize();
+    await instrumentedEventBus.initialize();
     logger.info("Event bus initialized successfully");
 
     // Subscribe to complaint events for projection updates
-    await eventBus.subscribe(
+    await instrumentedEventBus.subscribe(
       "complaint-service-projections",
       "COMPLAINT_CREATED",
       {
-        handle: async (event) => await projectionHandlers.handleEvent(event),
+        handle: async (event: DomainEvent) =>
+          await projectionHandlers.handleEvent(event),
       }
     );
 
-    await eventBus.subscribe(
+    await instrumentedEventBus.subscribe(
       "complaint-service-projections",
       "COMPLAINT_ASSIGNED",
       {
-        handle: async (event) => await projectionHandlers.handleEvent(event),
+        handle: async (event: DomainEvent) =>
+          await projectionHandlers.handleEvent(event),
       }
     );
 
-    await eventBus.subscribe(
+    await instrumentedEventBus.subscribe(
       "complaint-service-projections",
       "COMPLAINT_PROCESSING_STARTED",
       {
-        handle: async (event) => await projectionHandlers.handleEvent(event),
+        handle: async (event: DomainEvent) =>
+          await projectionHandlers.handleEvent(event),
       }
     );
 
-    await eventBus.subscribe(
+    await instrumentedEventBus.subscribe(
       "complaint-service-projections",
       "COMPLAINT_RESOLVED",
       {
-        handle: async (event) => await projectionHandlers.handleEvent(event),
+        handle: async (event: DomainEvent) =>
+          await projectionHandlers.handleEvent(event),
       }
     );
 
-    await eventBus.subscribe(
+    await instrumentedEventBus.subscribe(
       "complaint-service-projections",
       "COMPLAINT_CLOSED",
       {
-        handle: async (event) => await projectionHandlers.handleEvent(event),
+        handle: async (event: DomainEvent) =>
+          await projectionHandlers.handleEvent(event),
       }
     );
 
-    await eventBus.subscribe(
+    await instrumentedEventBus.subscribe(
       "complaint-service-projections",
       "COMPLAINT_PRIORITY_UPDATED",
       {
-        handle: async (event) => await projectionHandlers.handleEvent(event),
+        handle: async (event: DomainEvent) =>
+          await projectionHandlers.handleEvent(event),
       }
     );
 
     // Subscribe to saga events
-    await eventBus.subscribe("complaint-saga", "COMPLAINT_SAGA_INITIATED", {
-      handle: async (event) =>
-        await sagaEventHandlers.handleComplaintSagaInitiated(
-          convertDomainEventToSagaEvent(event)
-        ),
-    });
+    await instrumentedEventBus.subscribe(
+      "complaint-saga",
+      "COMPLAINT_SAGA_INITIATED",
+      {
+        handle: async (event: DomainEvent) =>
+          await sagaEventHandlers.handleComplaintSagaInitiated(
+            convertDomainEventToSagaEvent(event)
+          ),
+      }
+    );
 
-    await eventBus.subscribe(
+    await instrumentedEventBus.subscribe(
       "complaint-saga",
       "CUSTOMER_VALIDATION_COMPLETED",
       {
-        handle: async (event) =>
+        handle: async (event: DomainEvent) =>
           await sagaEventHandlers.handleCustomerValidationCompleted(
             convertDomainEventToSagaEvent(event)
           ),
       }
     );
 
-    await eventBus.subscribe("complaint-saga", "CUSTOMER_VALIDATION_FAILED", {
-      handle: async (event) =>
-        await sagaEventHandlers.handleCustomerValidationFailed(
-          convertDomainEventToSagaEvent(event)
-        ),
-    });
+    await instrumentedEventBus.subscribe(
+      "complaint-saga",
+      "CUSTOMER_VALIDATION_FAILED",
+      {
+        handle: async (event: DomainEvent) =>
+          await sagaEventHandlers.handleCustomerValidationFailed(
+            convertDomainEventToSagaEvent(event)
+          ),
+      }
+    );
 
-    await eventBus.subscribe("complaint-saga", "ORDER_VERIFICATION_COMPLETED", {
-      handle: async (event) =>
-        await sagaEventHandlers.handleOrderVerificationCompleted(
-          convertDomainEventToSagaEvent(event)
-        ),
-    });
+    await instrumentedEventBus.subscribe(
+      "complaint-saga",
+      "ORDER_VERIFICATION_COMPLETED",
+      {
+        handle: async (event: DomainEvent) =>
+          await sagaEventHandlers.handleOrderVerificationCompleted(
+            convertDomainEventToSagaEvent(event)
+          ),
+      }
+    );
 
-    await eventBus.subscribe("complaint-saga", "REFUND_PROCESSING_COMPLETED", {
-      handle: async (event) =>
-        await sagaEventHandlers.handleResolutionProcessingCompleted(
-          convertDomainEventToSagaEvent(event)
-        ),
-    });
+    await instrumentedEventBus.subscribe(
+      "complaint-saga",
+      "REFUND_PROCESSING_COMPLETED",
+      {
+        handle: async (event: DomainEvent) =>
+          await sagaEventHandlers.handleResolutionProcessingCompleted(
+            convertDomainEventToSagaEvent(event)
+          ),
+      }
+    );
 
-    await eventBus.subscribe(
+    await instrumentedEventBus.subscribe(
       "complaint-saga",
       "REPLACEMENT_PROCESSING_COMPLETED",
       {
-        handle: async (event) =>
+        handle: async (event: DomainEvent) =>
           await sagaEventHandlers.handleResolutionProcessingCompleted(
             convertDomainEventToSagaEvent(event)
           ),
       }
     );
 
-    await eventBus.subscribe(
+    await instrumentedEventBus.subscribe(
       "complaint-saga",
       "STORE_CREDIT_PROCESSING_COMPLETED",
       {
-        handle: async (event) =>
+        handle: async (event: DomainEvent) =>
           await sagaEventHandlers.handleResolutionProcessingCompleted(
             convertDomainEventToSagaEvent(event)
           ),
       }
     );
 
-    await eventBus.subscribe("complaint-saga", "RESOLUTION_PROCESSING_FAILED", {
-      handle: async (event) =>
-        await sagaEventHandlers.handleResolutionProcessingFailed(
-          convertDomainEventToSagaEvent(event)
-        ),
-    });
+    await instrumentedEventBus.subscribe(
+      "complaint-saga",
+      "RESOLUTION_PROCESSING_FAILED",
+      {
+        handle: async (event: DomainEvent) =>
+          await sagaEventHandlers.handleResolutionProcessingFailed(
+            convertDomainEventToSagaEvent(event)
+          ),
+      }
+    );
 
     logger.info("Event subscriptions set up successfully");
   } catch (error) {
@@ -226,6 +262,7 @@ initializeEventBus().catch((err) =>
 // Middleware
 app.use(cors());
 app.use(json());
+app.use(correlationMiddleware); // Add correlation context middleware
 app.use(requestLogger); // Add request logging middleware
 app.use(metricsMiddleware(SERVICE_NAME)); // Add metrics middleware
 
@@ -267,7 +304,7 @@ process.on("SIGTERM", async () => {
   logger.info("SIGTERM received, shutting down gracefully");
   databaseManager.stopMonitoring();
   await databaseManager.disconnect();
-  await eventBus.disconnect();
+  await instrumentedEventBus.disconnect();
   process.exit(0);
 });
 
@@ -275,6 +312,6 @@ process.on("SIGINT", async () => {
   logger.info("SIGINT received, shutting down gracefully");
   databaseManager.stopMonitoring();
   await databaseManager.disconnect();
-  await eventBus.disconnect();
+  await instrumentedEventBus.disconnect();
   process.exit(0);
 });
