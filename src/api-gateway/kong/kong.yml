@@ -81,6 +81,42 @@ services:
       - microservice
       - event-store
 
+  # Complaint Service
+  - name: complaint-service
+    url: http://complaint-service:3000
+    routes:
+      - name: complaint-routes
+        paths:
+          - /api/complaints
+        strip_path: false
+    tags:
+      - microservice
+      - complaint
+
+  # Audit Service
+  - name: audit-service
+    url: http://audit-service:3000
+    routes:
+      - name: audit-routes
+        paths:
+          - /api/audit
+        strip_path: false
+    tags:
+      - microservice
+      - audit
+
+  # Notification Service
+  - name: notification-service
+    url: http://notification-service:3000
+    routes:
+      - name: notification-routes
+        paths:
+          - /api/notifications
+        strip_path: false
+    tags:
+      - microservice
+      - notification
+
 # Global plugins
 plugins:
   - name: prometheus
@@ -170,6 +206,30 @@ plugins:
 
   - name: key-auth
     service: event-store-service
+    config:
+      key_names:
+        - apikey
+        - X-API-Key
+      hide_credentials: true
+
+  - name: key-auth
+    service: complaint-service
+    config:
+      key_names:
+        - apikey
+        - X-API-Key
+      hide_credentials: true
+
+  - name: key-auth
+    service: audit-service
+    config:
+      key_names:
+        - apikey
+        - X-API-Key
+      hide_credentials: true
+
+  - name: key-auth
+    service: notification-service
     config:
       key_names:
         - apikey

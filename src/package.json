@@ -25,7 +25,8 @@
     "test:all": "npm run test:user && npm run test:catalog && npm run test:transaction",
     "test:user": "cd services/user-service && npm test",
     "test:catalog": "cd services/catalog-service && npm test",
-    "test:transaction": "cd services/transaction-service && npm test"
+    "test:transaction": "cd services/transaction-service && npm test",
+    "test:integration": "node scripts/test-integration.js"
   },
   "workspaces": [
     "services/*",

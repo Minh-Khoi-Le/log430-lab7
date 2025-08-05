@@ -153,6 +153,10 @@ services:
       - user-service
       - catalog-service
       - transaction-service
+      - complaint-service
+      - audit-service
+      - notification-service
+      - event-store-service
     networks:
       - default
       - monitoring
@@ -323,6 +327,34 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - default
+      - monitoring
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: ./services/notification-service/Dockerfile
+    ports:
+      - "3006:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672
+      SERVICE_NAME: notification-service
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_USER: notifications@example.com
+      SMTP_PASS: your-smtp-password
+    depends_on:
       rabbitmq:
         condition: service_healthy
     healthcheck:

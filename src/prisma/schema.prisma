@@ -85,13 +85,17 @@ model Stock {
 // Relationships:
 // - One-to-Many with Sale: A user (client) can make multiple purchases
 // - One-to-Many with Refund: A user can request multiple refunds
+// - One-to-Many with Complaint: A user can create multiple complaints
+// - One-to-Many with AssignedComplaints: A user (agent) can be assigned multiple complaints
 model User {
-  id       Int     @id @default(autoincrement())
-  name     String  @unique @map("name")
-  role     String  @default("client")
-  password String  @default("password") // Simple authentication
-  sales    Sale[]
-  refunds  Refund[]
+  id                 Int         @id @default(autoincrement())
+  name               String      @unique @map("name")
+  role               String      @default("client")
+  password           String      @default("password") // Simple authentication
+  sales              Sale[]
+  refunds            Refund[]
+  complaints         Complaint[]
+  assignedComplaints Complaint[] @relation("AssignedComplaints")
 
   @@map("User")
 }
@@ -351,6 +355,68 @@ model AuditTrail {
   @@index([startTime])
   @@index([endTime])
   @@map("AuditTrail")
+}
+
+// Complaint Model
+// 
+// Represents a customer complaint in the system.
+// Supports CQRS pattern with command and query separation.
+// 
+// Relationships:
+// - Many-to-One with User: Each complaint belongs to one user
+// - One-to-Many with Notification: A complaint can have multiple notifications
+model Complaint {
+  id            String        @id @default(uuid()) @map("id")
+  userId        Int           @map("user_id")
+  title         String        @map("title")
+  description   String        @map("description")
+  status        String        @default("OPEN") @map("status") // OPEN, ASSIGNED, IN_PROGRESS, RESOLVED, CLOSED
+  priority      String        @default("MEDIUM") @map("priority") // LOW, MEDIUM, HIGH, CRITICAL
+  category      String        @map("category")
+  assignedTo    Int?          @map("assigned_to")
+  resolution    String?       @map("resolution")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  closedAt      DateTime?     @map("closed_at")
+  
+  // Relationships
+  user          User          @relation(fields: [userId], references: [id])
+  assignedUser  User?         @relation("AssignedComplaints", fields: [assignedTo], references: [id])
+  notifications Notification[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedTo])
+  @@index([createdAt])
+  @@map("complaints")
+}
+
+// Notification Model
+// 
+// Represents notifications sent for complaint events.
+// Tracks delivery status and notification history.
+// 
+// Relationships:
+// - Many-to-One with Complaint: Each notification belongs to one complaint
+model Notification {
+  id              String    @id @default(uuid()) @map("id")
+  complaintId     String    @map("complaint_id")
+  recipientEmail  String    @map("recipient_email")
+  notificationType String   @map("notification_type")
+  subject         String    @map("subject")
+  content         String    @map("content")
+  sentAt          DateTime? @map("sent_at")
+  deliveryStatus  String    @default("PENDING") @map("delivery_status") // PENDING, SENT, FAILED, DELIVERED
+  createdAt       DateTime  @default(now()) @map("created_at")
+  
+  // Relationships
+  complaint       Complaint @relation(fields: [complaintId], references: [id])
+
+  @@index([complaintId])
+  @@index([deliveryStatus])
+  @@index([createdAt])
+  @@map("notifications")
 }
 
 // ComplaintSagaState Model
