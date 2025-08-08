@@ -1,4 +1,4 @@
-# Rapport Arc42 Lab6 - Système de Gestion de Magasin
+# Rapport Arc42 Lab7 - Système de Gestion de Magasin
 
 ## Liens vers les dépôts Github
 
@@ -9,6 +9,7 @@
 - Lab4 : [https://github.com/Minh-Khoi-Le/log430-lab4.git](https://github.com/Minh-Khoi-Le/log430-lab4.git)
 - Lab5 : [https://github.com/Minh-Khoi-Le/log430-lab5.git](https://github.com/Minh-Khoi-Le/log430-lab5.git)
 - Lab6 : [https://github.com/Minh-Khoi-Le/log430-lab6.git](https://github.com/Minh-Khoi-Le/log430-lab6.git)
+- Lab7 : [https://github.com/Minh-Khoi-Le/log430-lab7.git](https://github.com/Minh-Khoi-Le/log430-lab7.git)
 
 ---
 
@@ -571,6 +572,295 @@ src/shared/infrastructure/
     └── http-client.ts        # Client pour communication inter-services
 ```
 
+### 5.5 Architecture Événementielle et CQRS
+
+#### 5.5.1 Vue d'Ensemble de l'Architecture Événementielle
+
+Le système implémente une **architecture événementielle complète** basée sur les patterns Event Sourcing, CQRS (Command Query Responsibility Segregation), et Saga Orchestration. Cette architecture assure le découplage des services, la traçabilité complète, et la cohérence finale des données distribuées.
+
+**Composants Principaux :**
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  Complaint      │    │  Event Store    │    │  Audit          │
+│  Service        │    │  Service        │    │  Service        │
+│  (CQRS)         │    │  (PostgreSQL)   │    │  (Subscriber)   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         └─────────────┬─────────┴─────────┬─────────────┘
+                       │                   │
+                ┌─────────────────┐ ┌─────────────────┐
+                │  RabbitMQ       │ │  Saga           │
+                │  Message Broker │ │  Orchestrator   │
+                └─────────────────┘ └─────────────────┘
+```
+
+#### 5.5.2 Event Store Service (Port 3008)
+
+**Responsabilités :**
+
+- Persistance immuable de tous les événements business dans PostgreSQL
+- Reconstruction d'état des agrégats via replay d'événements
+- Contrôle de concurrence optimiste avec versioning
+- API de requête flexible pour l'analyse et l'audit
+- Support pour les projections et les vues matérialisées
+
+**Schéma Event Store PostgreSQL :**
+
+```sql
+CREATE TABLE event_store (
+    event_id UUID PRIMARY KEY,
+    event_type VARCHAR(255) NOT NULL,
+    aggregate_id VARCHAR(255) NOT NULL,
+    aggregate_type VARCHAR(255) NOT NULL,
+    event_data JSONB NOT NULL,
+    metadata JSONB NOT NULL,
+    version INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes pour performance
+CREATE INDEX idx_event_store_aggregate ON event_store(aggregate_id, version);
+CREATE INDEX idx_event_store_type ON event_store(event_type);
+CREATE INDEX idx_event_store_created ON event_store(created_at);
+```
+
+**API Endpoints :**
+
+- `POST /api/events/append/:streamId` - Ajouter événements à un stream
+- `GET /api/events/stream/:streamId` - Récupérer événements d'un stream
+- `GET /api/events/query` - Requête d'événements avec filtres
+- `POST /api/events/replay` - Replay d'événements selon critères
+- `GET /api/events/statistics` - Statistiques de l'event store
+
+#### 5.5.3 Complaint Service - Implémentation CQRS Complète
+
+**Architecture CQRS :**
+
+```
+Command Side (Écriture)          Query Side (Lecture)
+┌─────────────────┐             ┌─────────────────┐
+│  HTTP Commands  │             │  HTTP Queries   │
+└─────────┬───────┘             └─────────┬───────┘
+          │                               │
+┌─────────▼───────┐             ┌─────────▼───────┐
+│ Command Handlers│             │ Query Handlers  │
+└─────────┬───────┘             └─────────┬───────┘
+          │                               │
+┌─────────▼───────┐             ┌─────────▼───────┐
+│ Domain Entities │             │  Projections    │
+│  (Aggregates)   │             │ (Read Models)   │
+└─────────┬───────┘             └─────────▲───────┘
+          │                               │
+┌─────────▼───────┐             ┌─────────┴───────┐
+│  Event Store    │────Events───▶│ Event Handlers  │
+│  (Write Model)  │             │ (Projections)   │
+└─────────────────┘             └─────────────────┘
+```
+
+**Command Handlers :**
+
+- `CreateComplaintHandler` - Création de nouvelle réclamation
+- `AssignComplaintHandler` - Assignation à un agent
+- `StartProcessingHandler` - Démarrage du traitement
+- `ResolveComplaintHandler` - Résolution de la réclamation
+- `CloseComplaintHandler` - Fermeture définitive
+
+**Query Handlers :**
+
+- `GetComplaintsHandler` - Liste avec filtres et pagination
+- `GetComplaintDetailsHandler` - Détail d'une réclamation
+- `GetComplaintTimelineHandler` - Timeline des événements
+- `GetComplaintStatisticsHandler` - Statistiques et métriques
+
+**Projections (Read Models) :**
+
+```typescript
+// Projection optimisée pour l'affichage
+interface ComplaintProjection {
+  id: string;
+  title: string;
+  description: string;
+  status: ComplaintStatus;
+  priority: Priority;
+  assignedTo?: string;
+  assignedToName?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  resolvedAt?: Date;
+  customerInfo: {
+    userId: string;
+    userName: string;
+    email: string;
+  };
+}
+
+// Timeline pour l'audit et le suivi
+interface ComplaintTimeline {
+  complaintId: string;
+  events: ComplaintTimelineEvent[];
+}
+```
+
+#### 5.5.4 RabbitMQ Message Broker
+
+**Configuration des Exchanges :**
+
+- `complaints.events` - Événements du domaine des réclamations
+- `audit.events` - Événements d'audit système
+- `saga.events` - Événements de coordination des workflows
+- `notifications.events` - Événements de notification
+
+**Queues par Service :**
+
+- `complaint.commands` - Commandes pour le service réclamations
+- `audit.all.events` - Tous les événements pour audit complet
+- `saga.orchestration` - Coordination des workflows distribués
+- `notification.events` - Notifications utilisateur
+
+**Configuration Docker :**
+
+```yaml
+rabbitmq:
+  image: rabbitmq:3-management-alpine
+  ports:
+    - "5672:5672"    # AMQP port
+    - "15672:15672"  # Management UI
+  environment:
+    RABBITMQ_DEFAULT_USER: admin
+    RABBITMQ_DEFAULT_PASS: admin123
+```
+
+#### 5.5.5 Audit Service (Port 3007) - Souscripteur Universel
+
+**Responsabilités :**
+
+- Souscription automatique à TOUS les événements système
+- Création d'audit logs pour conformité réglementaire
+- Suivi des trails d'audit pour workflows complexes
+- Corrélation distribuée avec correlation IDs
+- Statistiques et rapports d'audit
+
+**Souscriptions d'Événements :**
+
+```typescript
+// Souscription universelle à tous les événements
+await eventBus.subscribeToAll('audit-service-all-events', {
+  handle: async (event) => await auditHandlers.handleDomainEvent(event)
+});
+
+// Souscriptions spécialisées par domaine
+await eventBus.subscribe('audit-service-complaint-events', 'COMPLAINT_*');
+await eventBus.subscribe('audit-service-saga-events', 'SAGA_*');
+await eventBus.subscribe('audit-service-security-events', 'USER_*');
+```
+
+**Modèle de Données Audit :**
+
+```sql
+-- Logs d'audit pour tous les événements
+CREATE TABLE audit_logs (
+    audit_id UUID PRIMARY KEY,
+    event_type VARCHAR(255) NOT NULL,
+    entity_type VARCHAR(100),
+    entity_id VARCHAR(255),
+    event_data JSONB NOT NULL,
+    correlation_id UUID,
+    user_id VARCHAR(255),
+    timestamp TIMESTAMP NOT NULL,
+    source_service VARCHAR(100),
+    metadata JSONB
+);
+
+-- Trails d'audit pour workflows
+CREATE TABLE audit_trails (
+    trail_id UUID PRIMARY KEY,
+    correlation_id UUID NOT NULL,
+    trail_type VARCHAR(100) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    started_at TIMESTAMP NOT NULL,
+    completed_at TIMESTAMP,
+    metadata JSONB
+);
+```
+
+#### 5.5.6 Flux d'Événements Typique
+
+**Scénario : Création et Traitement d'une Réclamation**
+
+```
+1. HTTP POST /api/complaints
+   ↓
+2. CreateComplaintCommand → ComplaintCommandHandler
+   ↓
+3. Complaint.create() → ComplaintCreatedEvent
+   ↓
+4. Event Store ← PostgreSQL (persistence)
+   ↓
+5. RabbitMQ ← Event Publication
+   ↓
+6. Event Consumption:
+   ├─ Audit Service → Audit Log Creation
+   ├─ Projection Handlers → Read Model Update
+   ├─ Notification Service → User Alert
+   └─ Saga Orchestrator → Workflow Trigger (si applicable)
+```
+
+#### 5.5.7 Monitoring et Métriques Événementielles
+
+**Métriques Prometheus Spécialisées :**
+
+```typescript
+// Publication d'événements
+events_published_total{service, event_type, exchange, status}
+event_publishing_duration_seconds{service, event_type}
+
+// Consommation d'événements
+events_consumed_total{service, event_type, queue, status}
+event_consumption_duration_seconds{service, event_type}
+
+// CQRS Métriques
+command_executions_total{service, command_type, status}
+query_executions_total{service, query_type, status}
+projection_updates_total{service, projection_type, status}
+
+// Event Store
+event_store_operations_total{service, operation, status}
+event_store_event_count{service, aggregate_type}
+event_store_size_bytes{service}
+
+// Sagas
+saga_executions_total{service, saga_type, status}
+saga_step_executions_total{service, saga_type, step_name}
+saga_compensations_total{service, saga_type}
+```
+
+**Dashboard Grafana "Event-Driven Architecture" :**
+
+- **Event Publishing Rate** : Taux de publication par service et type
+- **Event Consumption Latency** : Latence end-to-end des événements
+- **CQRS Performance** : Métriques commands vs queries
+- **Projection Lag** : Retard dans la mise à jour des projections
+- **Saga Monitoring** : Workflows actifs et compensations
+- **Error Rates** : Taux d'erreur par type d'opération
+
+#### 5.5.8 Avantages de l'Architecture Événementielle
+
+**Techniques :**
+
+- **Découplage** : Services indépendants communicant via événements
+- **Scalabilité** : Séparation optimisée lecture/écriture avec CQRS
+- **Résilience** : Retry logic, dead letter queues, compensations
+- **Traçabilité** : Historique complet immuable dans l'Event Store
+- **Consistency** : Eventual consistency via propagation d'événements
+
+**Métier :**
+
+- **Audit Complet** : Conformité réglementaire avec trails d'audit
+- **Analyse Historique** : Reconstruction d'état et analytics temporelles
+- **Workflows Complexes** : Orchestration via patterns Saga
+- **Temps Réel** : Réactions immédiates aux événements business
+
 ---
 
 ## 6. Vues Runtime
@@ -628,6 +918,108 @@ Le processus de génération de rapport pour les administrateurs :
 3. Agrégation des données de vente et transaction
 4. Compilation et retour du rapport complet
 
+### 6.4 Scénario : Workflow Événementiel - Traitement d'une Réclamation CQRS
+
+**Participants :**
+
+- Client (Web UI)
+- Kong Gateway
+- Complaint Service (CQRS)
+- Event Store Service
+- RabbitMQ (Message Broker)
+- Audit Service
+- Notification Service
+
+**Flux d'Événements Détaillé :**
+
+```
+1. [Client] HTTP POST /api/complaints
+   ↓
+2. [Kong] Route → complaint-service:3005
+   ↓
+3. [Complaint Service - Command Side]
+   - ComplaintCommandHandler.createComplaint()
+   - Validation métier
+   - Complaint.create() → Événement COMPLAINT_CREATED
+   ↓
+4. [Event Store Service:3008]
+   - PostgreSQL: INSERT INTO event_store
+   - Versioning et concurrence optimiste
+   ↓
+5. [RabbitMQ] Publication événement
+   - Exchange: complaints.events
+   - Routing: complaint.event.created
+   ↓
+6. [Consommation Parallèle]
+   ├─ [Audit Service:3007]
+   │  - Création audit_log automatique
+   │  - Trail de conformité
+   ├─ [Complaint Service - Query Side]
+   │  - ComplaintProjectionHandler.onComplaintCreated()
+   │  - Mise à jour projection dénormalisée
+   └─ [Notification Service:3006]
+      - Envoi notification client
+      - Alerte assigné (si applicable)
+   ↓
+7. [Client] GET /api/complaints/:id
+   ↓
+8. [Complaint Service - Query Side]
+   - ComplaintQueryHandler.getComplaintDetails()
+   - Lecture projection optimisée
+   - Retour données enrichies
+```
+
+**Caractéristiques Techniques :**
+
+- **Eventual Consistency** : Les projections sont mises à jour asynchronement
+- **Correlation IDs** : Traçabilité end-to-end dans tous les services
+- **Retry Logic** : RabbitMQ avec exponential backoff
+- **Monitoring** : Métriques temps réel pour chaque étape
+
+**Métriques de Performance Typiques :**
+
+- **Command Execution** : 10-50ms (écriture + event store)
+- **Event Publishing** : 1-5ms (RabbitMQ)
+- **Event Consumption** : 5-20ms par consommateur
+- **Projection Update** : 5-15ms (lecture/écriture projection)
+- **Query Execution** : 2-10ms (lecture projection optimisée)
+
+**Gestion d'Erreurs :**
+
+- **Échec Command** : Transaction rollback, pas d'événement publié
+- **Échec Event Store** : Retry automatique, alerting si persistant
+- **Échec Publication** : Retry avec dead letter queue après 3 tentatives
+- **Échec Projection** : Retry indépendant, projection lag monitoring
+
+### 6.5 Scénario : Event Replay et Reconstruction d'État
+
+**Cas d'Usage :** Reconstruction de l'état d'une réclamation ou audit forensique
+
+```
+1. [Admin] HTTP GET /api/event-store/replay?aggregateId=complaint-123
+   ↓
+2. [Event Store Service]
+   - SELECT * FROM event_store WHERE aggregate_id = 'complaint-123' ORDER BY version
+   - Retour séquence chronologique des événements
+   ↓
+3. [Reconstruction État]
+   - ComplaintAggregate.fromEvents(events)
+   - Application séquentielle des événements
+   - État final reconstitué
+   ↓
+4. [Analyse/Debug]
+   - Comparaison avec projection actuelle
+   - Détection d'éventuelles inconsistances
+   - Audit trail complet disponible
+```
+
+**Utilisation pour l'Audit :**
+
+- **Conformité RGPD** : Historique complet des modifications
+- **Forensique** : Reconstruction exacte de l'état à tout moment
+- **Debug** : Analyse des anomalies via replay
+- **Migration** : Reconstruction après changement de schéma
+
 ---
 
 ## 7. Vues de Déploiement
@@ -649,16 +1041,24 @@ Le diagramme de déploiement ci-dessus montre l'organisation des conteneurs Dock
 - Catalog Service sur port 3002 (produits et inventaire)  
 - Transaction Service sur port 3003 (ventes et remboursements)
 - Saga Orchestrator Service sur port 3004 (orchestration workflows distribuées)
+- Complaint Service sur port 3005 (gestion réclamations avec CQRS)
+- Notification Service sur port 3006 (notifications temps réel)
+- Audit Service sur port 3007 (audit universel événementiel)
+- Event Store Service sur port 3008 (persistance événements avec PostgreSQL)
 
 **Niveau Infrastructure :**
 
-- PostgreSQL 15 sur port 5432 (base de données centralisée)
+- PostgreSQL 15 sur port 5432 (base de données centralisée + event store)
 - Redis 7 sur port 6379 (cache et sessions)
+- RabbitMQ 3 sur ports 5672/15672 (message broker événementiel)
 
 **Niveau Monitoring :**
 
 - Prometheus sur port 9090 (collecte de métriques)
 - Grafana sur port 3004 (dashboards et visualisation)
+- Node Exporter sur port 9100 (métriques système)
+- PostgreSQL Exporter sur port 9187 (métriques base de données)
+- Redis Exporter sur port 9121 (métriques cache)
 
 ### 7.2 Configuration Docker Compose
 
@@ -672,7 +1072,7 @@ services:
     build: ./services/user-service
     ports: ["3001:3000"]
     environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/retail
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/log430_store
       - REDIS_URL=redis://redis:6379
     depends_on: [postgres, redis]
 
@@ -680,7 +1080,7 @@ services:
     build: ./services/catalog-service
     ports: ["3002:3000"]
     environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/retail
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/log430_store
       - REDIS_URL=redis://redis:6379
     depends_on: [postgres, redis]
 
@@ -688,39 +1088,119 @@ services:
     build: ./services/transaction-service
     ports: ["3003:3000"]
     environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/retail
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/log430_store
       - REDIS_URL=redis://redis:6379
     depends_on: [postgres, redis]
+
+  saga-orchestrator-service:
+    build: ./services/saga-orchestrator-service
+    ports: ["3004:3000"]
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/log430_store
+      - REDIS_URL=redis://redis:6379
+    depends_on: [postgres, redis]
+
+  complaint-service:
+    build: ./services/complaint-service
+    ports: ["3005:3000"]
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/log430_store
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672
+    depends_on: [postgres, redis, rabbitmq]
+
+  notification-service:
+    build: ./services/notification-service
+    ports: ["3006:3000"]
+    environment:
+      - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672
+    depends_on: [rabbitmq]
+
+  audit-service:
+    build: ./services/audit-service
+    ports: ["3007:3000"]
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/log430_store
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672
+    depends_on: [postgres, redis, rabbitmq]
+
+  event-store-service:
+    build: ./services/event-store-service
+    ports: ["3008:3000"]
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/log430_store
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672
+    depends_on: [postgres, redis, rabbitmq]
 ```
 
 #### 7.2.2 Infrastructure
 
 ```yaml
   postgres:
-    image: postgres:15
+    image: postgres:15-alpine
     environment:
-      POSTGRES_DB: retail
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: log430_store
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports: ["5432:5432"]
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   redis:
-    image: redis:7
+    image: redis:7-alpine
     ports: ["6379:6379"]
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"    # AMQP port
+      - "15672:15672"  # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+      RABBITMQ_DEFAULT_VHOST: /
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   kong:
-    image: kong:3.4
+    image: kong:latest
     environment:
       KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
+      KONG_DECLARATIVE_CONFIG: "/etc/kong/kong.yml"
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
     volumes:
-      - ./api-gateway/kong/kong.yml:/kong/declarative/kong.yml
+      - ./api-gateway/kong/kong.yml:/etc/kong/kong.yml
     ports:
-      - "8000:8000"
-      - "8001:8001"
+      - "8000:8000"  # Public API
+      - "8001:8001"  # Admin API
+    depends_on:
+      - user-service
+      - catalog-service
+      - transaction-service
+      - complaint-service
+      - audit-service
+      - notification-service
+      - event-store-service
 ```
 
 #### 7.2.3 Monitoring
@@ -731,18 +1211,110 @@ services:
     ports: ["9090:9090"]
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml
+      - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
 
   grafana:
     image: grafana/grafana:latest
     ports: ["3004:3000"]
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    ports: ["9100:9100"]
+    command:
+      - '--web.listen-address=0.0.0.0:9100'
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    ports: ["9187:9187"]
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@postgres:5432/log430_store?sslmode=disable"
+    depends_on:
+      - postgres
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    ports: ["9121:9121"]
+    environment:
+      REDIS_ADDR: "redis:6379"
+    depends_on:
+      - redis
+```
+
+#### 7.2.4 Dashboards Grafana Spécialisés
+
+Le système inclut des dashboards Grafana préconfigurés pour l'architecture événementielle :
+
+1. **Golden Signals Dashboard** : Vue d'ensemble des quatre signaux dorés
+2. **Event-Driven Architecture Dashboard** : Métriques événementielles spécialisées
+3. **Saga Monitoring Dashboard** : Suivi des workflows distribués
+4. **System Overview Dashboard** : Vue globale de l'infrastructure
+
+**Configuration des Targets Prometheus :**
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: 'user-service'
+    static_configs:
+      - targets: ['user-service:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'catalog-service'
+    static_configs:
+      - targets: ['catalog-service:3000']
+
+  - job_name: 'transaction-service'
+    static_configs:
+      - targets: ['transaction-service:3000']
+
+  - job_name: 'saga-orchestrator-service'
+    static_configs:
+      - targets: ['saga-orchestrator-service:3000']
+
+  - job_name: 'complaint-service'
+    static_configs:
+      - targets: ['complaint-service:3000']
+
+  - job_name: 'audit-service'
+    static_configs:
+      - targets: ['audit-service:3000']
+
+  - job_name: 'event-store-service'
+    static_configs:
+      - targets: ['event-store-service:3000']
+
+  - job_name: 'notification-service'
+    static_configs:
+      - targets: ['notification-service:3000']
+
+  - job_name: 'kong'
+    static_configs:
+      - targets: ['kong:8000']
+    metrics_path: '/metrics'
+```
+
+      - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes:
       - ./monitoring/grafana:/etc/grafana/provisioning
+
 ```
 
 ### 7.3 Stratégies de Déploiement
@@ -825,6 +1397,132 @@ const httpRequestTotal = new prometheus.Counter({
   help: 'Total number of HTTP requests',
   labelNames: ['method', 'route', 'status_code']
 });
+```
+
+#### 8.3.3 Monitoring Événementiel Avancé
+
+**Métriques Spécialisées pour l'Architecture Événementielle :**
+
+```javascript
+// Événements - Publication et Consommation
+const eventPublishingTotal = new prometheus.Counter({
+  name: 'events_published_total',
+  help: 'Total number of events published',
+  labelNames: ['service', 'event_type', 'exchange', 'routing_key', 'status']
+});
+
+const eventConsumptionDuration = new prometheus.Histogram({
+  name: 'event_consumption_duration_seconds',
+  help: 'Duration of event consumption processing in seconds',
+  labelNames: ['service', 'event_type', 'queue', 'status'],
+  buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10]
+});
+
+// CQRS - Commands et Queries
+const commandExecutionTotal = new prometheus.Counter({
+  name: 'command_executions_total',
+  help: 'Total number of command executions',
+  labelNames: ['service', 'command_type', 'status']
+});
+
+const queryExecutionDuration = new prometheus.Histogram({
+  name: 'query_execution_duration_seconds',
+  help: 'Duration of query executions in seconds',
+  labelNames: ['service', 'query_type', 'status']
+});
+
+// Event Store - Opérations et Performance
+const eventStoreOperationsTotal = new prometheus.Counter({
+  name: 'event_store_operations_total',
+  help: 'Total number of event store operations',
+  labelNames: ['service', 'operation', 'status']
+});
+
+const eventStoreEventCount = new prometheus.Gauge({
+  name: 'event_store_event_count',
+  help: 'Total number of events in the event store',
+  labelNames: ['service', 'aggregate_type']
+});
+
+// Sagas - Orchestration et Compensations
+const sagaExecutionTotal = new prometheus.Counter({
+  name: 'saga_executions_total',
+  help: 'Total number of saga executions',
+  labelNames: ['service', 'saga_type', 'status']
+});
+
+const activeSagas = new prometheus.Gauge({
+  name: 'active_sagas',
+  help: 'Number of currently active sagas',
+  labelNames: ['service', 'saga_type', 'status']
+});
+```
+
+**Dashboards Grafana Spécialisés :**
+
+1. **Dashboard "Event-Driven Architecture"** :
+   - Taux de publication/consommation d'événements par service
+   - Latence end-to-end des événements (émission → consommation)
+   - Distribution des types d'événements
+   - Taux d'erreur de traitement événementiel
+
+2. **Dashboard "CQRS Performance"** :
+   - Ratio commands vs queries par service
+   - Performance des projections (lag de mise à jour)
+   - Throughput des opérations read vs write
+   - Cache hit rates des projections
+
+3. **Dashboard "Saga Monitoring"** :
+   - Workflows actifs par type
+   - Taux de succès vs compensations
+   - Durée moyenne des workflows
+   - Étapes les plus fréquemment échouées
+
+4. **Dashboard "Event Store Analytics"** :
+   - Croissance du volume d'événements
+   - Performance des opérations de replay
+   - Distribution des types d'agrégats
+   - Utilisation de l'espace de stockage
+
+**Alerting Proactif :**
+
+```yaml
+# Exemples d'alertes Prometheus
+groups:
+  - name: event-driven-alerts
+    rules:
+      - alert: HighEventProcessingLatency
+        expr: histogram_quantile(0.95, rate(event_consumption_duration_seconds_bucket[5m])) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latence élevée de traitement d'événements"
+          description: "P95 latence > 1s pour {{ $labels.service }}"
+
+      - alert: EventProcessingErrors
+        expr: rate(event_processing_errors_total[5m]) > 0.1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Taux d'erreur élevé dans le traitement d'événements"
+
+      - alert: ProjectionLag
+        expr: (time() - projection_last_update_timestamp) > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Retard dans la mise à jour des projections"
+
+      - alert: SagaCompensationHigh
+        expr: rate(saga_compensations_total[10m]) / rate(saga_executions_total[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Taux de compensation élevé pour les sagas"
 ```
 
 ### 8.4 Gestion des Erreurs
@@ -998,6 +1696,86 @@ Le processus de vente nécessite des opérations coordonnées à travers plusieu
 - Latence supplémentaire (~50-100ms) acceptable pour la cohérence
 - Eventual consistency nécessitant adaptation UI
 - Gains majeurs en fiabilité et observabilité
+
+### 9.8 ADR-008 : Architecture Événementielle avec Event Sourcing et CQRS
+
+**Statut** : ACCEPTÉ (Implémenté décembre 2024)
+
+**Décision** : Implémentation d'une architecture événementielle complète avec Event Sourcing, CQRS et message broker RabbitMQ.
+
+**Contexte** :
+
+Le système nécessite une traçabilité complète des opérations business, un découplage efficace entre services, et une scalabilité optimisée pour les opérations de lecture vs écriture.
+
+**Justification** :
+
+- **Event Sourcing** : Historique immutable et complet des événements business
+- **CQRS** : Optimisation séparée des modèles de lecture et d'écriture
+- **RabbitMQ** : Bus d'événements fiable avec retry logic et dead letter queues
+- **Audit automatique** : Traçabilité complète via souscription universelle aux événements
+- **Résilience** : Eventual consistency et compensation automatique
+
+**Composants implémentés** :
+
+- **Event Store Service** (Port 3008) : PostgreSQL pour persistance événements
+- **Complaint Service** : Implémentation CQRS complète avec projections
+- **Audit Service** (Port 3007) : Souscripteur universel aux événements
+- **RabbitMQ** : Message broker avec exchanges typés par domaine
+
+**Conséquences** :
+
+- Complexité accrue mais gains en observabilité et résilience
+- Eventual consistency nécessitant adaptation des UIs
+- Nouveaux services à maintenir (event-store, audit)
+- Monitoring spécialisé pour l'architecture événementielle
+
+### 9.9 ADR-009 : Implémentation CQRS avec Event Sourcing
+
+**Statut** : ACCEPTÉ (Implémenté décembre 2024)
+
+**Décision** : Implémentation du pattern CQRS avec Event Sourcing pour le service de réclamations (Complaint Service).
+
+**Contexte** :
+
+Le service de réclamations nécessite des opérations complexes de lecture et d'écriture avec besoins différents, ainsi qu'une traçabilité complète du cycle de vie des réclamations.
+
+**Justification** :
+
+- **Séparation Command/Query** : Optimisation indépendante des opérations
+- **Projections spécialisées** : Read models optimisés par cas d'usage
+- **Event Sourcing intégré** : Historique complet via replay d'événements
+- **Performance** : Cache-friendly avec projections dénormalisées
+- **Audit trail** : Traçabilité métier automatique
+
+**Architecture technique** :
+
+```
+Command Side ──▶ Domain Aggregates ──▶ Event Store
+                       │
+                       ▼
+Event Bus ──▶ Projection Handlers ──▶ Query Side
+```
+
+**Patterns implémentés** :
+
+- Command Handlers avec validation métier
+- Domain Aggregates avec logique business
+- Event Handlers pour mise à jour projections
+- Query Handlers pour requêtes optimisées
+
+**Métriques spécialisées** :
+
+- `command_executions_total` : Exécutions de commandes
+- `query_executions_total` : Exécutions de requêtes  
+- `projection_updates_total` : Mises à jour projections
+- Latence P95 pour toutes les opérations
+
+**Conséquences** :
+
+- Architecture plus complexe mais plus maintenable
+- Eventual consistency entre commands et queries
+- Performance améliorée pour les requêtes fréquentes
+- Capacité d'analytics avancées sur l'historique
 
 ---
 
@@ -1206,5 +1984,5 @@ Les décisions architecturales prises (Kong Gateway, base de données partagée,
 Les risques identifiés et les dettes techniques fournissent une roadmap claire pour l'évolution future du système vers une architecture de production robuste.
 
 **Auteur** : Minh Khoi Le
-**Date** : 2025-08-06
+**Date** : 2025-08-08
 **Version** : 4.0

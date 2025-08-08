@@ -175,13 +175,6 @@ Bien que les microservices préconisent généralement une base de données par 
 - **Surveillance de performance** : Métriques Prometheus pour la latence, le débit et les taux d'erreur
 - **Vérifications de santé** : Tous les services exposent des endpoints de santé pour la surveillance
 
-## Références
-
-- [Microservices Architecture Patterns](https://microservices.io/)
-- [Documentation Kong API Gateway](https://docs.konghq.com/)
-- [Meilleures pratiques de surveillance Prometheus](https://prometheus.io/docs/practices/)
-- [Domain-Driven Design et Microservices](https://martinfowler.com/articles/microservices.html)
-
 ## ADRs liés
 
 - [ADR-002: Kong API Gateway pour le routage centralisé](./002-kong-api-gateway.md)

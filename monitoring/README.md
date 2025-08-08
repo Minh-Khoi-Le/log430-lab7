@@ -202,10 +202,3 @@ Add custom alert rules to `monitoring/alert_rules.yml`:
     summary: "Custom alert triggered"
     description: "Custom metric exceeded threshold"
 ```
-
-## Performance Considerations
-
-- **Scrape Interval**: Default 15s, adjust based on requirements
-- **Retention**: Prometheus retains data for 200h by default
-- **Cardinality**: Be mindful of label cardinality to avoid performance issues
-- **Resource Limits**: Set appropriate container resource limits

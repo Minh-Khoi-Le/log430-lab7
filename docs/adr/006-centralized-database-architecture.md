@@ -380,9 +380,3 @@ npm run test:integration
 - [ADR-001: Architecture de Microservices](./001-microservices-architecture.md)
 - [ADR-005: Stratégie de Cache Redis](./005-redis-caching-strategy.md)
 
-## Références
-
-- [Patterns de Conception Pilotée par le Domaine](https://martinfowler.com/tags/domain%20driven%20design.html)
-- [Implémentation du Pattern Repository](https://martinfowler.com/eaaCatalog/repository.html)
-- [Gestion des Données dans les Microservices](https://microservices.io/patterns/data/database-per-service.html)
-- [Bonnes Pratiques Prisma](https://www.prisma.io/docs/guides/performance-and-optimization)

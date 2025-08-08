@@ -1,4 +1,4 @@
-# Diagrammes UML - LOG430 Magasin (Mise à Jour 2025)
+# Diagrammes UML - LOG430 Magasin
 
 Ce dossier contient tous les diagrammes UML du système de gestion de magasin LOG430, créés avec PlantUML et reflétant l'architecture actuelle du système avec **infrastructure de base de données centralisée** et **monitoring complet**.
 
@@ -245,12 +245,3 @@ Tous les diagrammes reflètent fidèlement l'implémentation actuelle du systèm
 - Les services correspondent aux microservices (`src/services/`)
 - Les composants frontend correspondent aux composants React (`src/web-client/src/`)
 - L'architecture de déploiement correspond à `src/docker-compose.yml`
-
-## Maintenance
-
-Ces diagrammes doivent être mis à jour lorsque :
-
-- De nouvelles entités ou relations sont ajoutées
-- L'architecture des services change
-- De nouveaux cas d'utilisation sont implémentés
-- Les processus métier sont modifiés
