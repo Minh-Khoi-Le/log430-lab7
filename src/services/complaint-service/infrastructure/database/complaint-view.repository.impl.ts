@@ -183,7 +183,7 @@ export class ComplaintViewRepositoryImpl implements ComplaintViewRepository {
 
       await this.databaseManager.query(query, values);
 
-      logger.debug('Timeline entry added successfully', {
+      logger.info('Timeline entry added successfully', {
         complaintId: entry.complaintId,
         action: entry.action
       });
@@ -377,7 +377,7 @@ export class ComplaintViewRepositoryImpl implements ComplaintViewRepository {
 
       await this.databaseManager.query(query, values);
 
-      logger.debug('Complaint view upserted successfully', {
+      logger.info('Complaint view upserted successfully', {
         complaintId: view.id,
         version: view.version
       });
@@ -394,7 +394,7 @@ export class ComplaintViewRepositoryImpl implements ComplaintViewRepository {
       const query = `DELETE FROM complaint_views WHERE id = $1`;
       await this.databaseManager.query(query, [id]);
 
-      logger.debug('Complaint view deleted successfully', { complaintId: id });
+      logger.info('Complaint view deleted successfully', { complaintId: id });
     } catch (error) {
       logger.error('Failed to delete complaint view', error as Error, { complaintId: id });
       throw error;
@@ -433,7 +433,7 @@ export class ComplaintViewRepositoryImpl implements ComplaintViewRepository {
         WHERE closed_at IS NOT NULL
       `;
 
-      const result = await this.databaseManager.query(query);
+      const result = await this.databaseManager.query(query, []);
       const row = result.rows[0];
 
       return {
@@ -461,7 +461,7 @@ export class ComplaintViewRepositoryImpl implements ComplaintViewRepository {
         ORDER BY date DESC, status
       `;
 
-      const result = await this.databaseManager.query(query);
+      const result = await this.databaseManager.query(query, []);
 
       return result.rows.map(row => ({
         date: row.date,

@@ -12,8 +12,8 @@ import { ComplaintRepositoryImpl } from '../../infrastructure/database/complaint
 import { ComplaintCommandHandlers } from '../../application/commands/complaint-command.handlers';
 import { databaseManager } from '@shared/infrastructure/database';
 import { eventBus } from '@shared/infrastructure/messaging';
-import { ComplaintSagaStatus, ComplaintSagaStep } from '../../../../shared/domain/saga/complaint-saga-state';
-import { COMPLAINT_SAGA_EVENTS } from '../../../../shared/domain/events/complaint-saga.events';
+import { ComplaintSagaStatus, ComplaintSagaStep } from '@shared/domain/saga/complaint-saga-state';
+import { COMPLAINT_SAGA_EVENTS } from '@shared/domain/events/complaint-saga.events';
 import { v4 as uuidv4 } from 'uuid';
 
 describe('Complaint Saga Integration Tests', () => {

@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
-import { BaseRepository } from '../../../../shared/infrastructure/database/base-repository';
-import { IDatabaseManager, databaseManager } from '../../../../shared/infrastructure/database/database-manager';
-import { createLogger } from '../../../../shared/infrastructure/logging';
+import { BaseRepository } from '@shared/infrastructure/database/base-repository';
+import { IDatabaseManager, databaseManager } from '@shared/infrastructure/database/database-manager';
+import { createLogger } from '@shared/infrastructure/logging';
 import { Saga } from '../../domain/entities/saga.entity';
 import { SagaStep, SagaStepState } from '../../domain/entities/saga-step.entity';
 import { SagaState } from '../../domain/enums/saga-state.enum';

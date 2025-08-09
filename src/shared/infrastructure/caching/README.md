@@ -197,13 +197,3 @@ export class UserService {
   }
 }
 ```
-
-## Future Enhancements
-
-- Circuit breaker pattern for Redis connection failures
-- Cache warming strategies
-- Advanced cache statistics and monitoring
-- Support for additional cache stores (Memcached, in-memory)
-- Batch operations for improved performance
-- Compression for large values
-- Automatic cache pruning strategies

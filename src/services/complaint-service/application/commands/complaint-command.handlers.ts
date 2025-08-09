@@ -3,7 +3,7 @@ import { Complaint } from '../../domain/entities/complaint.entity';
 import { IEventBus } from '@shared/infrastructure/messaging';
 import { createLogger } from '@shared/infrastructure/logging';
 import { v4 as uuidv4 } from 'uuid';
-import { COMPLAINT_SAGA_EVENTS } from '../../../../shared/domain/events/complaint-saga.events';
+import { COMPLAINT_SAGA_EVENTS } from '@shared/domain/events/complaint-saga.events';
 import {
   CreateComplaintDto,
   AssignComplaintDto,

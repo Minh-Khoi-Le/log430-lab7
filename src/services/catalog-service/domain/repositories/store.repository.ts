@@ -1,5 +1,5 @@
 import { Store } from '../entities/store.entity';
-import { IBaseRepository } from '../../../../shared/infrastructure/database/base-repository';
+import { IBaseRepository } from '@shared/infrastructure/database/base-repository';
 
 /**
  * Repository interface for Store entity persistence operations.

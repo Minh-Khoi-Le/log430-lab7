@@ -1,4 +1,4 @@
-const logger = require('../../../../shared/utils/logger');
+const logger = require('../../shared/utils/logger');
 const { v4: uuidv4 } = require('uuid');
 
 class NotificationHandler {

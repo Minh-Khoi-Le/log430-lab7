@@ -3,9 +3,15 @@ const logger = require('../../utils/logger');
 
 class ServiceRegistry {
   constructor(redisConfig = {}) {
+    // Redis v4+ configuration format
+    const redisHost = redisConfig.host || process.env.REDIS_HOST || 'localhost';
+    const redisPort = redisConfig.port || process.env.REDIS_PORT || 6379;
+    
     this.redisClient = redis.createClient({
-      host: redisConfig.host || process.env.REDIS_HOST || 'localhost',
-      port: redisConfig.port || process.env.REDIS_PORT || 6379,
+      socket: {
+        host: redisHost,
+        port: redisPort
+      },
       ...redisConfig
     });
     

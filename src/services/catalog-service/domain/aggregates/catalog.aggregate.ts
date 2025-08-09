@@ -4,7 +4,7 @@
 import { Product } from "../entities/product.entity";
 import { Store } from "../entities/store.entity";
 import { Stock } from "../entities/stock.entity";
-import { DomainEvent } from "../../../../shared/domain/events/domain-events";
+import { DomainEvent } from "@shared/domain/events/domain-events";
 
 export class CatalogAggregate {
   private readonly products: Map<number, Product> = new Map();

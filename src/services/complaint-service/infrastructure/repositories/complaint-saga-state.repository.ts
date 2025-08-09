@@ -11,7 +11,7 @@ import {
   ComplaintSagaStatus, 
   ComplaintSagaStep,
   ComplaintSagaStateRepository
-} from '../../../../shared/domain/saga/complaint-saga-state';
+} from '@shared/domain/saga/complaint-saga-state';
 
 export class ComplaintSagaStatePrismaRepository implements ComplaintSagaStateRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -30,15 +30,13 @@ export class ComplaintSagaStatePrismaRepository implements ComplaintSagaStateRep
         status: context.status,
         currentStep: context.currentStep,
         version: context.version,
-        contextData: JSON.parse(JSON.stringify({
-          complaintData: context.complaintData,
-          customerValidation: context.customerValidation,
-          orderVerification: context.orderVerification,
-          resolutionProcessing: context.resolutionProcessing,
-          compensation: context.compensation,
-          errors: context.errors,
-          stepHistory: context.stepHistory
-        }))
+        complaintData: JSON.parse(JSON.stringify(context.complaintData)),
+        customerValidation: context.customerValidation ? JSON.parse(JSON.stringify(context.customerValidation)) : null,
+        orderVerification: context.orderVerification ? JSON.parse(JSON.stringify(context.orderVerification)) : null,
+        resolutionProcessing: context.resolutionProcessing ? JSON.parse(JSON.stringify(context.resolutionProcessing)) : null,
+        compensation: context.compensation ? JSON.parse(JSON.stringify(context.compensation)) : null,
+        errors: JSON.parse(JSON.stringify(context.errors)),
+        stepHistory: JSON.parse(JSON.stringify(context.stepHistory))
       }
     });
   }
@@ -143,15 +141,13 @@ export class ComplaintSagaStatePrismaRepository implements ComplaintSagaStateRep
         currentStep: merged.currentStep,
         version: merged.version,
         completedAt: merged.completedAt,
-        contextData: JSON.parse(JSON.stringify({
-          complaintData: merged.complaintData,
-          customerValidation: merged.customerValidation,
-          orderVerification: merged.orderVerification,
-          resolutionProcessing: merged.resolutionProcessing,
-          compensation: merged.compensation,
-          errors: merged.errors,
-          stepHistory: merged.stepHistory
-        }))
+        complaintData: JSON.parse(JSON.stringify(merged.complaintData)),
+        customerValidation: merged.customerValidation ? JSON.parse(JSON.stringify(merged.customerValidation)) : null,
+        orderVerification: merged.orderVerification ? JSON.parse(JSON.stringify(merged.orderVerification)) : null,
+        resolutionProcessing: merged.resolutionProcessing ? JSON.parse(JSON.stringify(merged.resolutionProcessing)) : null,
+        compensation: merged.compensation ? JSON.parse(JSON.stringify(merged.compensation)) : null,
+        errors: JSON.parse(JSON.stringify(merged.errors)),
+        stepHistory: JSON.parse(JSON.stringify(merged.stepHistory))
       }
     });
   }
@@ -184,10 +180,13 @@ export class ComplaintSagaStatePrismaRepository implements ComplaintSagaStateRep
       data: {
         currentStep: step,
         version: current.version + 1,
-        contextData: JSON.parse(JSON.stringify({
-          ...current,
-          stepHistory: updatedHistory
-        }))
+        complaintData: JSON.parse(JSON.stringify(current.complaintData)),
+        customerValidation: current.customerValidation ? JSON.parse(JSON.stringify(current.customerValidation)) : null,
+        orderVerification: current.orderVerification ? JSON.parse(JSON.stringify(current.orderVerification)) : null,
+        resolutionProcessing: current.resolutionProcessing ? JSON.parse(JSON.stringify(current.resolutionProcessing)) : null,
+        compensation: current.compensation ? JSON.parse(JSON.stringify(current.compensation)) : null,
+        errors: JSON.parse(JSON.stringify(current.errors)),
+        stepHistory: JSON.parse(JSON.stringify(updatedHistory))
       }
     });
   }
@@ -199,8 +198,6 @@ export class ComplaintSagaStatePrismaRepository implements ComplaintSagaStateRep
   }
 
   private mapToComplaintSagaContext(record: any): ComplaintSagaContext {
-    const contextData = record.contextData || {};
-    
     return {
       sagaId: record.sagaId,
       complaintId: record.complaintId,
@@ -213,17 +210,17 @@ export class ComplaintSagaStatePrismaRepository implements ComplaintSagaStateRep
       status: record.status as ComplaintSagaStatus,
       currentStep: record.currentStep as ComplaintSagaStep,
       version: record.version,
-      complaintData: contextData.complaintData || {
+      complaintData: record.complaintData || {
         type: 'OTHER',
         priority: 'MEDIUM',
         description: ''
       },
-      customerValidation: contextData.customerValidation,
-      orderVerification: contextData.orderVerification,
-      resolutionProcessing: contextData.resolutionProcessing,
-      compensation: contextData.compensation,
-      errors: contextData.errors || [],
-      stepHistory: contextData.stepHistory || []
+      customerValidation: record.customerValidation,
+      orderVerification: record.orderVerification,
+      resolutionProcessing: record.resolutionProcessing,
+      compensation: record.compensation,
+      errors: record.errors || [],
+      stepHistory: record.stepHistory || []
     };
   }
 }

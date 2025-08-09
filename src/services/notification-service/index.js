@@ -1,8 +1,8 @@
 const express = require('express');
-const { createPrometheusMetrics } = require('../../shared/monitoring/prometheus');
-const logger = require('../../shared/utils/logger');
-const { connectRabbitMQ } = require('../../shared/messaging/rabbitmq');
-const ServiceRegistry = require('../../shared/infrastructure/service-discovery/registry');
+const { createPrometheusMetrics } = require('./shared/monitoring/prometheus');
+const logger = require('./shared/utils/logger');
+const { connectRabbitMQ } = require('./shared/messaging/rabbitmq');
+const ServiceRegistry = require('./shared/infrastructure/service-discovery/registry');
 const NotificationHandler = require('./src/handlers/notificationHandler');
 
 const app = express();

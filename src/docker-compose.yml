@@ -10,12 +10,12 @@ services:
       - ../monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml
       - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--storage.tsdb.retention.time=200h"
+      - "--web.enable-lifecycle"
     networks:
       - monitoring
 
@@ -42,7 +42,7 @@ services:
     ports:
       - "9100:9100"
     command:
-      - '--web.listen-address=0.0.0.0:9100'
+      - "--web.listen-address=0.0.0.0:9100"
     networks:
       - monitoring
 
@@ -106,13 +106,36 @@ services:
       - default
       - monitoring
 
+  # MongoDB for Event Store
+  mongodb:
+    image: mongo:6
+    container_name: log430-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: eventstore
+    volumes:
+      - mongodb_data:/data/db
+      - ./scripts/init-mongodb.js:/docker-entrypoint-initdb.d/init-mongodb.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - default
+      - monitoring
+
   # RabbitMQ Message Broker
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: log430-rabbitmq
     ports:
-      - "5672:5672"    # AMQP port
-      - "15672:15672"  # Management UI
+      - "5672:5672" # AMQP port
+      - "15672:15672" # Management UI
     environment:
       RABBITMQ_DEFAULT_USER: admin
       RABBITMQ_DEFAULT_PASS: admin123
@@ -133,10 +156,10 @@ services:
   kong:
     image: kong:latest
     ports:
-      - "8000:8000"  # Public API
-      - "8443:8443"  # Public API (SSL)
-      - "8001:8001"  # Admin API
-      - "8444:8444"  # Admin API (SSL)
+      - "8000:8000" # Public API
+      - "8443:8443" # Public API (SSL)
+      - "8001:8001" # Admin API
+      - "8444:8444" # Admin API (SSL)
     volumes:
       - ./api-gateway/kong/kong.yml:/etc/kong/kong.yml
     environment:
@@ -150,12 +173,14 @@ services:
       KONG_ADMIN_ERROR_LOG: "/dev/stderr"
       KONG_LOG_LEVEL: "info"
     depends_on:
+      - rabbitmq-setup
       - user-service
       - catalog-service
       - transaction-service
       - complaint-service
       - audit-service
       - notification-service
+      - saga-orchestrator-service
       - event-store-service
     networks:
       - default
@@ -181,7 +206,13 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -209,7 +240,13 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -237,7 +274,13 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -255,20 +298,29 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/log430_store
+      MONGODB_URL: mongodb://admin:admin123@mongodb:27017/eventstore?authSource=admin
       REDIS_HOST: redis
       REDIS_PORT: 6379
       RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672
       SERVICE_NAME: event-store-service
+      EVENT_BATCH_SIZE: 100
+      SNAPSHOT_FREQUENCY: 50
+      REPLAY_TIMEOUT: 300000
     depends_on:
-      postgres:
+      mongodb:
         condition: service_healthy
       redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -290,7 +342,10 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672
+      MONGODB_URL: mongodb://admin:admin123@mongodb:27017/eventstore?authSource=admin
       SERVICE_NAME: complaint-service
+      CORRELATION_ID_HEADER: x-correlation-id
+      SAGA_TIMEOUT: 300000
     depends_on:
       postgres:
         condition: service_healthy
@@ -298,8 +353,18 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      rabbitmq-setup:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -322,6 +387,8 @@ services:
       REDIS_PORT: 6379
       RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672
       SERVICE_NAME: audit-service
+      AUDIT_RETENTION_DAYS: 365
+      EXPORT_MAX_RECORDS: 10000
     depends_on:
       postgres:
         condition: service_healthy
@@ -329,8 +396,16 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      rabbitmq-setup:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -349,16 +424,85 @@ services:
       NODE_ENV: development
       PORT: 3000
       RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       SERVICE_NAME: notification-service
       SMTP_HOST: smtp.gmail.com
       SMTP_PORT: 587
-      SMTP_USER: notifications@example.com
-      SMTP_PASS: your-smtp-password
+      SMTP_SECURE: false
+      SMTP_USER: ${SMTP_USER:-notifications@example.com}
+      SMTP_PASS: ${SMTP_PASS:-your-smtp-password}
+      EMAIL_FROM: noreply@company.com
+      EMAIL_TEMPLATES_PATH: /app/templates
+      RETRY_MAX_ATTEMPTS: 3
+      RETRY_DELAY: 5000
+    volumes:
+      - ./services/notification-service/templates:/app/templates:ro
     depends_on:
       rabbitmq:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq-setup:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - default
+      - monitoring
+
+  saga-orchestrator-service:
+    build:
+      context: .
+      dockerfile: ./services/saga-orchestrator-service/Dockerfile
+    ports:
+      - "3009:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/log430_store
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672
+      SERVICE_NAME: saga-orchestrator-service
+      USER_SERVICE_URL: http://user-service:3000
+      CATALOG_SERVICE_URL: http://catalog-service:3000
+      TRANSACTION_SERVICE_URL: http://transaction-service:3000
+      SAGA_TIMEOUT: 300000
+      CORRELATION_ID_HEADER: x-correlation-id
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      rabbitmq-setup:
+        condition: service_completed_successfully
+      user-service:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      transaction-service:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -398,6 +542,20 @@ services:
     networks:
       - default
 
+  # RabbitMQ setup service - Automatically creates queues and exchanges
+  rabbitmq-setup:
+    build:
+      context: ./scripts
+      dockerfile: Dockerfile.rabbitmq-setup
+    environment:
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - default
+    restart: "no" # Run once and exit
+
   # Web client
   web-client:
     build:
@@ -416,6 +574,7 @@ volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
+  mongodb_data:
   prometheus_data:
   grafana_data:
 

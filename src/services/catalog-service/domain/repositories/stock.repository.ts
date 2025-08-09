@@ -1,4 +1,4 @@
-import { IBaseRepository } from '../../../../shared/infrastructure/database/base-repository';
+import { IBaseRepository } from '@shared/infrastructure/database/base-repository';
 import { Stock } from '../entities/stock.entity';
 
 /**

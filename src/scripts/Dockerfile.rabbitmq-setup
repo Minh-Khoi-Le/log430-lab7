@@ -1,0 +1,12 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install amqplib for RabbitMQ setup
+RUN npm install amqplib
+
+# Copy setup script (context is scripts directory)
+COPY setup-rabbitmq-simple.js ./setup-rabbitmq.js
+
+# Run setup
+CMD ["node", "setup-rabbitmq.js"]

@@ -7,7 +7,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import { Logger } from '../../../../shared/infrastructure/logging/logger';
+import { Logger } from '@shared/infrastructure/logging/logger';
 import {
   ComplaintSagaContext,
   ComplaintSagaStateManager,
@@ -16,7 +16,7 @@ import {
   ComplaintSagaStep,
   SagaError,
   SagaStepExecution
-} from '../../../../shared/domain/saga/complaint-saga-state';
+} from '@shared/domain/saga/complaint-saga-state';
 
 const logger = new Logger({ serviceName: 'complaint-service' });
 

@@ -1,0 +1,15 @@
+Welcome to LOG430 Store!
+
+Dear {{username}},
+
+Thank you for registering with LOG430 Store. Your account has been successfully created.
+
+Account Details:
+- Username: {{username}}
+- Email: {{email}}
+- Registration Date: {{registrationDate}}
+
+You can now log in to your account and start exploring our products.
+
+Best regards,
+The LOG430 Store Team

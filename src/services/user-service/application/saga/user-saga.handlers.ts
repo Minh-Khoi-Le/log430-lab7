@@ -1,5 +1,10 @@
 /**
- * User Service Saga Event Handlers
+ * Uimport { IEventBus } from "@shared/infrastructure/messaging";
+import { Logger } from "@shared/infrastructure/logging/logger";
+import {
+  ComplaintSagaEvent, 
+  COMPLAINT_SAGA_EVENTS 
+} from "@shared/domain/events/complaint-saga.events";rvice Saga Event Handlers
  *
  * Handles saga events related to customer validation in the complaint handling workflow.
  * This service participates in the choreographed saga by validating customer information
@@ -7,12 +12,12 @@
  */
 
 import { v4 as uuidv4 } from "uuid";
-import { IEventBus } from "../../../../shared/infrastructure/messaging";
-import { Logger } from "../../../../shared/infrastructure/logging/logger";
+import { IEventBus } from "@shared/infrastructure/messaging";
+import { Logger } from "@shared/infrastructure/logging/logger";
 import {
   ComplaintSagaEvent,
   COMPLAINT_SAGA_EVENTS,
-} from "../../../../shared/domain/events/complaint-saga.events";
+} from "@shared/domain/events/complaint-saga.events";
 import { SharedUserRepository } from "../../infrastructure/database/shared-user.repository";
 
 const logger = new Logger({ serviceName: "user-service" });

@@ -5,13 +5,13 @@
  * Uses JSONB columns for flexible state storage while maintaining relational integrity.
  */
 
-import { DatabaseManager } from '../../../../shared/infrastructure/database/database-manager';
-import { Logger } from '../../../../shared/infrastructure/logging/logger';
+import { DatabaseManager } from '@shared/infrastructure/database/database-manager';
+import { Logger } from '@shared/infrastructure/logging/logger';
 import {
   ComplaintSagaContext,
   ComplaintSagaStateRepository,
   ComplaintSagaStatus
-} from '../../../../shared/domain/saga/complaint-saga-state';
+} from '@shared/domain/saga/complaint-saga-state';
 
 const logger = new Logger({ serviceName: 'complaint-service' });
 

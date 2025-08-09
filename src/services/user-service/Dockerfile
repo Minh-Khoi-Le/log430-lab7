@@ -55,6 +55,9 @@ COPY --from=builder /app/prisma ./prisma
 RUN mkdir -p shared
 COPY --from=builder /app/dist/shared ./shared
 
+# Copy path-aliases.js to dist directory so main.js can find it
+COPY services/user-service/path-aliases.js ./dist/
+
 # Copy start script
 COPY services/user-service/start.js ./
 

@@ -7,9 +7,9 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import { IEventBus } from '../../../../shared/infrastructure/messaging';
-import { Logger } from '../../../../shared/infrastructure/logging/logger';
-import { ComplaintSagaEvent, COMPLAINT_SAGA_EVENTS } from '../../../../shared/domain/events/complaint-saga.events';
+import { IEventBus } from '@shared/infrastructure/messaging';
+import { Logger } from '@shared/infrastructure/logging/logger';
+import { ComplaintSagaEvent, COMPLAINT_SAGA_EVENTS } from '@shared/domain/events/complaint-saga.events';
 import { SharedSaleRepository } from '../../infrastructure/database/shared-sale.repository';
 import { SharedRefundRepository } from '../../infrastructure/database/shared-refund.repository';
 

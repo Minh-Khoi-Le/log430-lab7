@@ -1,8 +1,8 @@
-# LOG430 Lab 5 - Retail Store Management System
+# LOG430 Lab 7 - Retail Store Management System
 
 ## Table of Contents
 
-- [LOG430 Lab 5 - Retail Store Management System](#log430-lab-5---retail-store-management-system)
+- [LOG430 Lab 7 - Retail Store Management System](#log430-lab-7---retail-store-management-system)
   - [Table of Contents](#table-of-contents)
   - [Description](#description)
   - [Architecture](#architecture)

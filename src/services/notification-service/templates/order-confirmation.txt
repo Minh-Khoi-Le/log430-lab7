@@ -1,0 +1,20 @@
+Order Confirmation - {{orderNumber}}
+
+Dear {{customerName}},
+
+Thank you for your order! We have received your order and it is being processed.
+
+Order Details:
+- Order Number: {{orderNumber}}
+- Order Date: {{orderDate}}
+- Total Amount: {{totalAmount}}
+
+Items Ordered:
+{{#items}}
+- {{name}} (Quantity: {{quantity}}) - {{price}}
+{{/items}}
+
+Your order will be processed within 1-2 business days.
+
+Best regards,
+The LOG430 Store Team

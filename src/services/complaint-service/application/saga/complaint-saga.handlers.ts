@@ -6,10 +6,10 @@
  * what actions to take next based on business rules.
  */
 
-import { IEventBus } from '../../../../shared/infrastructure/messaging';
-import { Logger } from '../../../../shared/infrastructure/logging/logger';
-import { ComplaintSagaEvent, COMPLAINT_SAGA_EVENTS } from '../../../../shared/domain/events/complaint-saga.events';
-import { ComplaintSagaStateManager, ComplaintSagaStep } from '../../../../shared/domain/saga/complaint-saga-state';
+import { IEventBus } from '@shared/infrastructure/messaging';
+import { Logger } from '@shared/infrastructure/logging/logger';
+import { ComplaintSagaEvent, COMPLAINT_SAGA_EVENTS } from '@shared/domain/events/complaint-saga.events';
+import { ComplaintSagaStateManager, ComplaintSagaStep } from '@shared/domain/saga/complaint-saga-state';
 import { ComplaintRepository } from '../../domain/repositories/complaint.repository';
 import { ComplaintCommandHandlers } from '../commands/complaint-command.handlers';
 import { v4 as uuidv4 } from 'uuid';
